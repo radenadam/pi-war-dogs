@@ -1,0 +1,7 @@
+# Not ours to format / hand-formatted living docs.
+node_modules/
+package-lock.json
+*.md
+LICENSE
+acceptance-test.sh
+dev/reference/agent-tool.html
