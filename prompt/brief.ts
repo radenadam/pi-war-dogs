@@ -14,8 +14,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getDocsPath, getExamplesPath, getReadmePath, VERSION } from "@earendil-works/pi-coding-agent";
+import { getDocsPath, getExamplesPath, getReadmePath, getShellConfig, VERSION } from "@earendil-works/pi-coding-agent";
+import { isPowershellAvailable } from "../agents/childtools.ts";
 import { agentDir } from "../agents/run.ts";
+import { stockToolOptions } from "../settings.ts";
 
 /** The extension folder (this file lives in prompt/). */
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -54,6 +56,35 @@ function osName(): string {
 	}
 }
 
+/**
+ * The shell fact (2026-08-30, the first Windows run): what the bash tool
+ * RUNS, from pi's own resolver (`getShellConfig` with the user's shellPath,
+ * the same call pi's bash makes), never `$SHELL`. `$SHELL` is the user's
+ * login shell, which is not what the tool runs, and Windows does not set it
+ * at all, so a Windows model was told nothing while its bash was Git Bash,
+ * where the same folder reads /c/Users/... and not C:\Users\.... On Windows
+ * the powershell tool is active beside bash (index.ts activateCustomTools)
+ * and is named too. A resolver that throws (no bash on this machine) drops
+ * the bash part; nothing is guessed.
+ */
+function shellFact(): string {
+	const parts: string[] = [];
+	try {
+		const shell = getShellConfig(stockToolOptions().bash.shellPath).shell;
+		if (shell) {
+			const posixOnWindows = process.platform === "win32" && /bash(?:\.exe)?$/i.test(shell);
+			parts.push(
+				`the bash tool runs ${shell}` +
+					(posixOnWindows
+						? " (a POSIX bash on Windows: inside it, Windows paths read /c/Users/..., not C:\\Users\\...)"
+						: ""),
+			);
+		}
+	} catch {}
+	if (isPowershellAvailable()) parts.push("the powershell tool runs Windows PowerShell");
+	return parts.length ? `Shell: ${parts.join("; ")}.` : "";
+}
+
 /** One cheap git read at brief build (the brief happens once), never per turn. */
 function gitFacts(cwd: string): string {
 	const run = (args: string[]) =>
@@ -90,7 +121,6 @@ export function buildBriefText(ctx: unknown): string | null {
 				return "";
 			}
 		})();
-		const shell = process.env.SHELL ?? "";
 		const d = new Date();
 		const pad = (n: number) => String(n).padStart(2, "0");
 		const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -101,15 +131,15 @@ export function buildBriefText(ctx: unknown): string | null {
 				return "";
 			}
 		})();
-		const machineParts = [osName(), user && `user ${user}`, home && `home ${home}`, shell && `shell ${shell}`].filter(
-			Boolean,
-		);
+		const machineParts = [osName(), user && `user ${user}`, home && `home ${home}`].filter(Boolean);
 		const dayParts = [date && `Today is ${date}`, tz && `timezone ${tz}`].filter(Boolean);
 		if (machineParts.length || dayParts.length) {
 			const head = machineParts.length ? `Machine: ${machineParts.join(", ")}.` : "";
 			const day = dayParts.length ? `${dayParts.join(", ")}.` : "";
 			lines.push([head, day].filter(Boolean).join(" "));
 		}
+		const shell = shellFact();
+		if (shell) lines.push(shell);
 
 		const cwd = String(c?.cwd ?? process.cwd());
 		lines.push(`Working directory: ${cwd}, ${gitFacts(cwd)}.`);

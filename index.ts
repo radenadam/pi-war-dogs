@@ -33,7 +33,7 @@
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { setChildToolFactory, setContinueNotice, setModelRegistry } from "./agents/session.ts";
 import { abortCause, loadKnownRuns, registry, settle, setOwnerSession } from "./agents/run.ts";
-import { features, setProjectTrusted, unconsentedProjectResources, warDogsBlock } from "./settings.ts";
+import { features, findSettings, setProjectTrusted, unconsentedProjectResources, warDogsBlock } from "./settings.ts";
 import {
 	bootEnabled,
 	busyState,
@@ -54,10 +54,10 @@ import type { SchemaEnums } from "./tools/agent.ts";
 import { loadAgents, reportAgentDiagnostics } from "./agents/config.ts";
 import {
 	childToolNames,
-	isShellPowershell,
+	isPowershellAvailable,
 	setChildExtraTools,
 	setChildExtraToolsSource,
-	setShellIsPowershell,
+	setPowershellAvailable,
 } from "./agents/childtools.ts";
 import { runningJobs } from "./tools/bash-background.ts";
 import { noticeForMain, noticeForRun } from "./tools/interrupted.ts";
@@ -285,15 +285,33 @@ export default async function (pi: ExtensionAPI) {
 			// bash with rg/fd covers grep/find/ls, and four overlapping schemas
 			// are a per-request tax plus noise in the agent tool's grantable
 			// enum. `war-dogs.stockTools: true` restores them everywhere.
-			// powershell (newer pi, Windows) is trimmed ONLY when bash is in the
-			// set — on a pi where powershell IS the shell, removing it would
-			// disarm the model. Off stays stock: a boot-off never runs this.
+			// THE SHELL FOLLOWS THE PLATFORM (the maintainer's rule; the first
+			// Windows run, 2026-08-30): pi registers `powershell` on every
+			// platform but activates it nowhere by default (sdk.js: read, bash,
+			// edit, write), and its own getPowerShellConfig refuses to run it off
+			// Windows. So on Windows powershell STAYS in the active set beside
+			// bash (pi finds Git Bash there): pi activates every tool an
+			// extension registers, our skin included (probed: `cur` carries it),
+			// and the splice below only covers a pi that stops doing so — unless
+			// the user set pi's `defaultTools`, which is pi's documented knob and
+			// wins as written; elsewhere it is trimmed as the dead tool it is.
+			// The earlier guard trimmed it beside bash everywhere, which on
+			// Windows removed the platform's shell (the maintainer's first
+			// Windows session never saw it). Off stays stock: a boot-off never
+			// runs this.
 			const keepStock = warDogsBlock().stockTools === true;
-			const trim = new Set(["grep", "find", "ls", ...(active.includes("bash") ? ["powershell"] : [])]);
-			// Children follow the shell (agents/childtools.ts): the powershell
-			// skin is handed over only where powershell is the session's shell.
-			setShellIsPowershell(active.includes("powershell") && !active.includes("bash"));
-			pi.setActiveTools(keepStock ? active : active.filter((n) => !trim.has(n)));
+			const onWindows = process.platform === "win32";
+			const userChoseTools = findSettings((cfg) => (Array.isArray(cfg?.defaultTools) ? true : undefined)) === true;
+			if (onWindows && !userChoseTools && !active.includes("powershell")) {
+				const at = active.indexOf("bash");
+				active.splice(at >= 0 ? at + 1 : active.length, 0, "powershell");
+			}
+			const trim = new Set(["grep", "find", "ls", ...(onWindows ? [] : ["powershell"])]);
+			const final = keepStock ? active : active.filter((n) => !trim.has(n));
+			// Children follow (agents/childtools.ts): the powershell skin is
+			// handed over, and offered in the agent tool's enum, where main has it.
+			setPowershellAvailable(final.includes("powershell"));
+			pi.setActiveTools(final);
 		} catch {}
 	};
 
@@ -704,11 +722,11 @@ function registerTools(pi: ExtensionAPI) {
 	// Children load no extensions, so these must be handed to them as
 	// customTools or their names resolve to nothing. See agents/childtools.ts.
 	setChildExtraTools(defs);
-	// The powershell skin for a child, only where powershell is the shell
-	// (agents/childtools.ts isShellPowershell); keyed, since the factory
+	// The powershell skin for a child, where main has powershell (Windows;
+	// agents/childtools.ts isPowershellAvailable); keyed, since the factory
 	// re-runs per session and the answer is known only after the active set.
 	setChildExtraToolsSource("powershell", (cwd) =>
-		isShellPowershell() ? [withStamp(powershellTool.build(cwd, { child: true })) as never] : [],
+		isPowershellAvailable() ? [withStamp(powershellTool.build(cwd, { child: true })) as never] : [],
 	);
 }
 

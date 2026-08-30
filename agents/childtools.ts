@@ -36,24 +36,23 @@ import { warDogsBlock } from "../settings.ts";
  * The stock nav tools trimmed from children (2026-08-27, the same switch as
  * main's active set): a child session is built by createAgentSession, which
  * DEFINES grep/find/ls regardless, so the trim must ride excludeTools on
- * BOTH build paths. powershell included unconditionally here: every child
- * carries the bash skin, so the Windows guard main needs never applies.
- * `war-dogs.stockTools: true` restores them (enum included).
+ * BOTH build paths. `war-dogs.stockTools: true` restores them (enum included).
+ * powershell follows main (index.ts activateCustomTools): where main has it
+ * (Windows), a child is handed the powershell skin through the keyed source
+ * and the name is not excluded; elsewhere it is excluded as the dead tool it
+ * is off Windows.
  */
 export function stockTrimExclusions(): string[] {
 	if (warDogsBlock().stockTools === true) return [];
-	// powershell stays trimmed beside bash; when it IS the session's shell
-	// (main's active set has powershell and no bash — Windows), a child gets
-	// the powershell skin instead, through the keyed source index.ts wires.
-	return shellIsPowershell ? ["grep", "find", "ls"] : ["grep", "find", "ls", "powershell"];
+	return powershellAvailable ? ["grep", "find", "ls"] : ["grep", "find", "ls", "powershell"];
 }
-let shellIsPowershell = false;
-/** Set by index.ts after the active set is known: powershell present, bash absent. */
-export function setShellIsPowershell(v: boolean): void {
-	shellIsPowershell = v;
+let powershellAvailable = false;
+/** Set by index.ts after the active set is known: powershell is in main's active set (Windows). */
+export function setPowershellAvailable(v: boolean): void {
+	powershellAvailable = v;
 }
-export function isShellPowershell(): boolean {
-	return shellIsPowershell;
+export function isPowershellAvailable(): boolean {
+	return powershellAvailable;
 }
 
 type Def = ToolDefinition<any, any, any>;

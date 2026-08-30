@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = path.resolve(here, "..", "..", "..");
@@ -17,16 +17,23 @@ const PI = (() => {
 	try {
 		return (
 			fs
-				.realpathSync(execSync("which pi", { encoding: "utf8" }).trim())
+				.realpathSync(execSync("which pi", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim())
 				// 0.83 runs <pi>/dist/cli.js; 0.84.3's bin is the bundle, <pi>/dist/bundle/cli.js
 				// (the 0.84.3 sweep: two dirname()s landed on <pi>/dist and jiti was not found).
 				.replace(/[\\/]dist(?:[\\/]bundle)?[\\/]cli\.js$/, "")
 		);
-	} catch {
-		return path.join(process.env.HOME ?? "", ".npm-global/lib/node_modules/@earendil-works/pi-coding-agent");
-	}
+	} catch {}
+	// Windows (2026-08-30): `which` does not exist and `pi` is a .ps1/.cmd shim, not a
+	// symlink to cli.js; the global root is where pi-node (and npm -g) put the package.
+	try {
+		const root = execSync("npm root -g", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+		const p = path.join(root, "@earendil-works", "pi-coding-agent");
+		if (fs.existsSync(path.join(p, "dist", "index.js"))) return p;
+	} catch {}
+	return path.join(process.env.HOME ?? "", ".npm-global/lib/node_modules/@earendil-works/pi-coding-agent");
 })();
-const { createJiti } = await import(`${PI}/node_modules/jiti/lib/jiti.mjs`);
+// A file URL, not a bare path: on Windows `import("C:\\…")` is ERR_UNSUPPORTED_ESM_URL_SCHEME.
+const { createJiti } = await import(pathToFileURL(path.join(PI, "node_modules", "jiti", "lib", "jiti.mjs")).href);
 const jiti = createJiti(import.meta.url, {
 	alias: {
 		"@earendil-works/pi-tui": `${PI}/node_modules/@earendil-works/pi-tui/dist/index.js`,

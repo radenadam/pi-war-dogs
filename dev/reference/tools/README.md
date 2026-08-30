@@ -12,7 +12,7 @@ war-dogs registers a handful of tools with pi. This folder documents each one fo
 | `read-write-edit.md` | `read`, `write`, `edit` — the file skins: the re-skinned appearance, `read`'s own text path, `edit`'s batch-rejection wording, every text. |
 | `mcp.md` | what war-dogs adds around the bundled pi-mcp-adapter (the master switch, children, rendering); the adapter's own texts live in its source. |
 
-war-dogs' own tools are `agent`, `webfetch`, `kimi-websearch` (`index.ts` `WAR_DOGS_TOOLS`), plus the re-skinned built-ins (`read`, `write`, `edit`, `bash`, and `powershell` where pi's shell is PowerShell), plus the MCP adapter's `mcp`, `mcpScript` and per-server tools. When war-dogs is off, none of these register: the model's tool list and system prompt are pi's, byte for byte.
+war-dogs' own tools are `agent`, `webfetch`, `kimi-websearch` (`index.ts` `WAR_DOGS_TOOLS`), plus the re-skinned built-ins (`read`, `write`, `edit`, `bash`, and `powershell` on Windows, where it is active beside `bash`), plus the MCP adapter's `mcp`, `mcpScript` and per-server tools. When war-dogs is off, none of these register: the model's tool list and system prompt are pi's, byte for byte.
 
 ## How a tool reaches the model, end to end
 

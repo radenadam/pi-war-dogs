@@ -58,28 +58,47 @@ inject/undo and the mock rig are bash+tmux and do not.
 - **Peers**: the registry entry and the named pipe `\\.\pipe\wd-agent-<id>` exist for the live
   session. Not driven end to end (needs a second session and a model).
 
+## Also done on Windows (later the same day, with the maintainer's eyes)
+
+- On screen: alt+v → `[^image 1]`, a drop, ctrl+click, the image reaching the model, the switch
+  off/on, folds, wheel, exit paths, an agent run with station and view — all hold.
+- ctrl+g: pi prints "Launching external editor…" after `ui.stop()` at the cursor `?1049l`
+  restored (the stale frame's editor line); with a GUI editor (notepad, pi's Windows default)
+  that overwrote the footer and scrolled. The stop wrap now parks the cursor below the frame
+  like the SIGTSTP path (ledger, "The external editor is a TUI stop"). Linux `--editor` harness
+  leg to re-run on the next Linux session.
+- THE SHELL FOLLOWS THE PLATFORM (the maintainer's rule, restored): pi activates only
+  `read, bash, edit, write` by default and auto-activates every extension-registered tool, so
+  the powershell skin was active and the old guard trimmed it beside bash — the maintainer's
+  first Windows session never had PowerShell. Now kept on win32 (unless pi's `defaultTools` is
+  set), trimmed elsewhere; children get the skin and the enum offers it; the brief's Shell line
+  comes from `getShellConfig` (the maintainer accepted the proposal). Ledger entry "The shell
+  follows the platform". Probes: the `-e` tools-dump extension (stock vs on) and the
+  childtools/brief jiti probe, both in the ledger.
+- WebFetch on a real hostname: render 6.9 s fresh, 3.8 s cached, static 2.9 s.
+- `dev/reference/tools/dump-definitions.mjs` runs on Windows now (`npm root -g` fallback, file
+  URL for the jiti import) — but `definitions.md` is MACHINE-DEPENDENT (path separators in the
+  agent description, the rg/fd line, the named-agent list), so regenerate it on Linux, not here.
+
 ## NEXT
 
-1. The maintainer's eyes (batched ask given at the end of the session): `/reload`, then alt+v
-   → `[^image 1]`, a drop from Explorer → `[^image 2]`, submit and check the wire footer;
-   `/war-dogs off` (settings.json: `theme` restored, `_prevTheme` gone) and on; folds and wheel
-   scroll; exit paths (`/exit`, double ctrl+c) leave the shell without mouse junk and off the
-   alt screen; an `agent` run, the station, a run view, a stop.
-2. Render-tier timing on a healthy network (`npm run fetch -- <url> --tier render --fresh`,
-   then again without `--fresh`: the second must be a cache hit in well under a second).
-3. A model-driven browser call from main and from a child (`pi -p`), and a peer conversation.
-4. PROPOSAL for the maintainer (what the model is told, so not done unilaterally): the session
-   brief's `shell` fact reads `process.env.SHELL`, unset on Windows, so a Windows model learns
-   nothing about its shell while its `bash` runs Git Bash (MINGW paths, `/c/Users/…`). State
-   pi's resolved shell instead (`getShellConfig`'s answer) — one line, all platforms.
-5. Windows Terminal drop shape: the probe assumes a bracketed paste with `"…"` around paths
+1. GLYPHS (the maintainer's decision pending): Windows Terminal renders emoji-capable
+   codepoints through Segoe UI Emoji and ignores VS15, so `✳` (working agent, U+2733) shows as
+   the green-square emoji; `✔ ⚠ ⚙ ▶` are the other emoji-capable glyphs in use. Proposed:
+   `✻` (U+273B) for working; replace whichever of the other four the maintainer sees as
+   pictures (`✓`, `△`, `⊛`/`⚒`, `▸`). All width-1 in pi-tui (probed).
+2. A model-driven browser call from main and from a child (`pi -p`), a peer conversation
+   between two Windows sessions, a background bash/powershell job, and conhost.
+3. Windows Terminal drop shape: the probe assumes a bracketed paste with `"…"` around paths
    containing spaces (WT's documented behaviour); confirm with a real drop of such a file.
+4. On Linux: re-run `./dev/ci.sh` (the shell change touches the child enum and the brief — the
+   ON prompt and the brief text changed; off is untouched) and regenerate `definitions.md`.
 
 ## Commits to push
 
-`5bd3761` gitattributes, `0640bde` attachments path dialect, and the webfetch render timer fix
-(the commit after it) — on the Windows clone's `main`, not yet pushed to origin. Push after the
-maintainer's on-screen check of alt+v.
+gitattributes, attachments path dialect, webfetch render timer, the ctrl+g parking, the shell
+rule, and this handoff — on the Windows clone's `main`, not yet pushed to origin (`git log
+origin/main..HEAD`). The maintainer has seen alt+v and the rest on screen; push when ready.
 
 ## Open, small
 
