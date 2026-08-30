@@ -33,7 +33,7 @@
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { setChildToolFactory, setContinueNotice, setModelRegistry } from "./agents/session.ts";
 import { abortCause, loadKnownRuns, registry, settle, setOwnerSession } from "./agents/run.ts";
-import { features, findSettings, setProjectTrusted, unconsentedProjectResources, warDogsBlock } from "./settings.ts";
+import { features, setProjectTrusted, unconsentedProjectResources, warDogsBlock } from "./settings.ts";
 import {
 	bootEnabled,
 	busyState,
@@ -54,6 +54,7 @@ import type { SchemaEnums } from "./tools/agent.ts";
 import { loadAgents, reportAgentDiagnostics } from "./agents/config.ts";
 import {
 	childToolNames,
+	decideShells,
 	mainShells,
 	setChildExtraTools,
 	setChildExtraToolsSource,
@@ -155,6 +156,9 @@ export default async function (pi: ExtensionAPI) {
 		// A run continued after its agents died with a session end reads the
 		// notice ahead of its turn (2026-08-29; main has had this since 08-28).
 		setContinueNotice((runId) => noticeForRun(runId));
+		// The shell answer first: the agent tool's session_start handler bakes
+		// its `tools` enum from it (agents/childtools.ts decideShells).
+		setMainShells(decideShells().shells);
 		if (on.subagent) safe("agent", () => registerAgentTool(pi));
 		// /ask and /ask! — the user's out-of-band question (tools/ask.ts).
 		if (on.subagent) safe("ask", () => registerAskCommand(pi));
@@ -305,10 +309,10 @@ export default async function (pi: ExtensionAPI) {
 			// Off stays stock: a boot-off never runs this.
 			const keepStock = warDogsBlock().stockTools === true;
 			const onWindows = process.platform === "win32";
-			const userChoseTools =
-				process.argv.includes("--tools") ||
-				process.argv.includes("-t") ||
-				findSettings((cfg) => (Array.isArray(cfg?.defaultTools) ? true : undefined)) === true;
+			// The answer was decided at load (agents/childtools.ts decideShells,
+			// published in installOnce before the agent tool's enum is built);
+			// here it is enforced on pi's active set and confirmed.
+			const userChoseTools = decideShells().explicit;
 			const shellTrim: string[] = [];
 			if (!userChoseTools) {
 				if (onWindows) {

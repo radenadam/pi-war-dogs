@@ -30,7 +30,7 @@ import {
 	createWriteToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { warDogsBlock } from "../settings.ts";
+import { findSettings, warDogsBlock } from "../settings.ts";
 
 /**
  * What a child must NOT have. Two lists in one answer, both riding
@@ -53,8 +53,57 @@ export interface Shells {
 	bash: boolean;
 	powershell: boolean;
 }
-/** Before main's active set is known: pi's own default shell. */
-let shells: Shells = { bash: true, powershell: false };
+/**
+ * The shell answer, decided from what is known at LOAD: the platform, and
+ * the user's explicit choice through pi's own knobs (`--tools`/`-t`,
+ * `--exclude-tools`/`-xt`, `--no-tools`, `--no-builtin-tools` on the command
+ * line; `defaultTools` in a settings file). It must exist before any
+ * session_start handler runs: installOnce registers the agent tool — whose
+ * handler bakes the `tools` enum — before the handler that sets the active
+ * set, so an answer published only there reached the enum one boot late
+ * (the ConPTY rig's first agent run: the enum offered bash, refused
+ * powershell, `1 failed`). activateCustomTools enforces this same answer on
+ * pi's active set and re-publishes what it actually ended with.
+ */
+export function decideShells(): { shells: Shells; explicit: boolean } {
+	const argv = process.argv;
+	const listArg = (long: string, short: string): string[] | null => {
+		const i = argv.findIndex((a) => a === long || a === short);
+		return i >= 0 && argv[i + 1]
+			? String(argv[i + 1])
+					.split(",")
+					.map((s) => s.trim())
+			: null;
+	};
+	if (
+		argv.includes("--no-tools") ||
+		argv.includes("-nt") ||
+		argv.includes("--no-builtin-tools") ||
+		argv.includes("-nbt")
+	)
+		return { shells: { bash: false, powershell: false }, explicit: true };
+	const chosen =
+		listArg("--tools", "-t") ??
+		findSettings((cfg) => (Array.isArray(cfg?.defaultTools) ? (cfg.defaultTools as string[]) : undefined)) ??
+		null;
+	const excluded = new Set(listArg("--exclude-tools", "-xt") ?? []);
+	if (chosen) {
+		return {
+			shells: {
+				bash: chosen.includes("bash") && !excluded.has("bash"),
+				powershell: chosen.includes("powershell") && !excluded.has("powershell"),
+			},
+			explicit: true,
+		};
+	}
+	const win = process.platform === "win32";
+	return {
+		shells: { bash: !win && !excluded.has("bash"), powershell: win && !excluded.has("powershell") },
+		explicit: false,
+	};
+}
+/** Before installOnce publishes: the platform's answer. */
+let shells: Shells = decideShells().shells;
 /** Set by index.ts after the active set is known: the shell tools main has. */
 export function setMainShells(v: Shells): void {
 	shells = { ...v };
