@@ -191,7 +191,7 @@ war-dogs ships [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter) (M
 
 ## The shell skins
 
-`bash` is pi's bash, re-skinned, with two optional parameters: `description` (a short phrase shown in the act instead of the raw command) and `background: true` (the command runs detached from the turn — `Esc` does not kill it — and its output and exit code arrive later as their own delivery). On Windows, `powershell` is active beside `bash` (pi's bash there is Git Bash, found under Program Files) and gets the same treatment and the same two parameters; agents get it too, and the session brief names both shells. pi runs `powershell` on Windows only and activates no shell but `bash` by itself, so war-dogs adds it there — unless you set pi's own `defaultTools` in `settings.json`, which is then respected as written. The foreground execute of both is pi's, byte for byte.
+`bash` is pi's bash, re-skinned, with two optional parameters: `description` (a short phrase shown in the act instead of the raw command) and `background: true` (the command runs detached from the turn — `Esc` does not kill it — and its output and exit code arrive later as their own delivery). **One shell per platform.** On Windows the shell tool is `powershell`, with the same treatment and the same two parameters; on Linux and macOS it is `bash`. Agents get the same shell as your session, the `agent` tool offers only that one, and the session brief names it. pi itself would give a Windows model `bash` (Git Bash, found under Program Files) and never `powershell`; war-dogs swaps them there, because two shells are redundant and PowerShell is the platform's own. To have both, or bash on Windows, choose explicitly the way pi documents — `pi --tools read,bash,powershell,edit,write` or `defaultTools` in `settings.json` — and war-dogs leaves your choice as written. The foreground execute of both is pi's, byte for byte.
 
 ---
 
@@ -209,7 +209,7 @@ The place for deliverables. There is no model-facing canvas tool: the model simp
 
 # What the model is told
 
-With the `prompt` feature on, war-dogs replaces pi's stock system prompt with its own **base** — pure conduct — assembled through pi's own builder, so your `AGENTS.md` context files, skills and the working-directory line survive exactly as they would under any custom prompt. A **session brief** (machine, the shell the `bash` tool actually runs — and `powershell` on Windows — runtime, references, model facts) rides the first turn once per session as a message you can fold open.
+With the `prompt` feature on, war-dogs replaces pi's stock system prompt with its own **base** — pure conduct — assembled through pi's own builder, so your `AGENTS.md` context files, skills and the working-directory line survive exactly as they would under any custom prompt. A **session brief** (machine, the shell tool and what it runs, runtime, references, model facts) rides the first turn once per session as a message you can fold open.
 
 **A user `SYSTEM.md` wins whole.** When you have a project `.pi/SYSTEM.md` (trusted) or a global `<agentDir>/SYSTEM.md`, war-dogs' base and brief stand down entirely — your prompt is the prompt.
 
@@ -241,7 +241,7 @@ Everything war-dogs reads. All of it is optional; with only `war-dogs.enabled: t
 |---|---|---|
 | `enabled` | `false` | The master switch. war-dogs does nothing until this is `true`. |
 | `theme` | `"canopy"` | The palette: `canopy`, `canopy-cobalt`, `dune`, `oxide`. A string names it and keeps the theme feature on; `false` turns the feature off (stock theme). `/war-dogs on` writes this into pi's `settings.theme` for you. |
-| `stockTools` | `false` | Restore pi's stock `grep`/`find`/`ls` (and, off Windows, `powershell`) for your session and for agents. By default they are trimmed — `bash` with `rg`/`fd` covers them, and `powershell` cannot run off Windows. |
+| `stockTools` | `false` | Restore pi's stock `grep`/`find`/`ls` for your session and for agents. By default they are trimmed — the shell with `rg`/`fd` covers them. The shell itself is not governed here: one per platform, or pi's `--tools`/`defaultTools` (The shell skins). |
 | `canvas.port` | derived | Pin the `/canvas` HTTP port. By default it is derived from the canvas path so bookmarks survive restarts. |
 | `expect` | — | The WebFetch scout: `profiles`, `maxUrls`, `timeoutMs`, and `profile` (a pinned profile name). See the header of `tools/library/webfetch/scout.ts`. |
 | `_prevTheme` | — | Written by `/war-dogs on` to remember your theme, restored on off. Not something you set. |

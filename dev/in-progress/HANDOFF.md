@@ -67,14 +67,19 @@ inject/undo and the mock rig are bash+tmux and do not.
   that overwrote the footer and scrolled. The stop wrap now parks the cursor below the frame
   like the SIGTSTP path (ledger, "The external editor is a TUI stop"). Linux `--editor` harness
   leg to re-run on the next Linux session.
-- THE SHELL FOLLOWS THE PLATFORM (the maintainer's rule, restored): pi activates only
+- ONE SHELL PER PLATFORM (the maintainer's rule, after two wrong cuts): pi activates only
   `read, bash, edit, write` by default and auto-activates every extension-registered tool, so
-  the powershell skin was active and the old guard trimmed it beside bash — the maintainer's
-  first Windows session never had PowerShell. Now kept on win32 (unless pi's `defaultTools` is
-  set), trimmed elsewhere; children get the skin and the enum offers it; the brief's Shell line
-  comes from `getShellConfig` (the maintainer accepted the proposal). Ledger entry "The shell
-  follows the platform". Probes: the `-e` tools-dump extension (stock vs on) and the
-  childtools/brief jiti probe, both in the ledger.
+  the powershell skin was active and the first guard trimmed it beside bash — the maintainer's
+  first Windows session never had PowerShell; a second cut kept both, ruled redundant. Now on
+  Windows powershell REPLACES bash at its seat, off Windows powershell is trimmed, and an
+  explicit `--tools`/`-t` or `defaultTools` leaves pi's set as written. Children, the agent
+  enum and the brief's Shell line follow main's shells (`setMainShells`). Ledger entry "ONE
+  SHELL PER PLATFORM". Probes: the `-e` tools-dump extension (stock / on / `--tools`) and
+  `shell-probe2.mjs`-style jiti probe of childtools + brief, both described in the ledger.
+  NOT YET SEEN: the maintainer's model actually calling `powershell` in a session, and a
+  child doing so; the `agent` doctrine and the scout still say "bash" in comments only (the
+  scout's own `pi -p` passes `--tools bash` explicitly, so it keeps Git Bash on Windows by
+  design).
 - WebFetch on a real hostname: render 6.9 s fresh, 3.8 s cached, static 2.9 s.
 - `dev/reference/tools/dump-definitions.mjs` runs on Windows now (`npm root -g` fallback, file
   URL for the jiti import) — but `definitions.md` is MACHINE-DEPENDENT (path separators in the

@@ -33,26 +33,34 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { warDogsBlock } from "../settings.ts";
 
 /**
- * The stock nav tools trimmed from children (2026-08-27, the same switch as
- * main's active set): a child session is built by createAgentSession, which
- * DEFINES grep/find/ls regardless, so the trim must ride excludeTools on
- * BOTH build paths. `war-dogs.stockTools: true` restores them (enum included).
- * powershell follows main (index.ts activateCustomTools): where main has it
- * (Windows), a child is handed the powershell skin through the keyed source
- * and the name is not excluded; elsewhere it is excluded as the dead tool it
- * is off Windows.
+ * What a child must NOT have. Two lists in one answer, both riding
+ * excludeTools on BOTH build paths, because a child session is built by
+ * createAgentSession, which DEFINES pi's built-ins regardless of anything
+ * main did to those names:
+ *  - the stock nav tools (2026-08-27, the same switch as main's active set);
+ *    `war-dogs.stockTools: true` restores them (enum included);
+ *  - the shell main does not have (2026-08-30, the maintainer's rule: ONE
+ *    shell per platform — powershell on Windows, bash elsewhere — unless the
+ *    user chose explicitly; index.ts activateCustomTools decides and publishes
+ *    `setMainShells`). The skins follow the same answer (index.ts keyed
+ *    sources), so a child never carries a shell main claims not to have.
  */
 export function stockTrimExclusions(): string[] {
-	if (warDogsBlock().stockTools === true) return [];
-	return powershellAvailable ? ["grep", "find", "ls"] : ["grep", "find", "ls", "powershell"];
+	const nav = warDogsBlock().stockTools === true ? [] : ["grep", "find", "ls"];
+	return [...nav, ...(shells.bash ? [] : ["bash"]), ...(shells.powershell ? [] : ["powershell"])];
 }
-let powershellAvailable = false;
-/** Set by index.ts after the active set is known: powershell is in main's active set (Windows). */
-export function setPowershellAvailable(v: boolean): void {
-	powershellAvailable = v;
+export interface Shells {
+	bash: boolean;
+	powershell: boolean;
 }
-export function isPowershellAvailable(): boolean {
-	return powershellAvailable;
+/** Before main's active set is known: pi's own default shell. */
+let shells: Shells = { bash: true, powershell: false };
+/** Set by index.ts after the active set is known: the shell tools main has. */
+export function setMainShells(v: Shells): void {
+	shells = { ...v };
+}
+export function mainShells(): Shells {
+	return { ...shells };
 }
 
 type Def = ToolDefinition<any, any, any>;
@@ -123,6 +131,8 @@ function safeCall(f: (cwd: string) => Def[], cwd: string): Def[] {
 export function childToolNames(cwd: string, withSubagent = true): string[] {
 	const names = new Set<string>();
 	const trimmed = new Set(stockTrimExclusions());
+	// powershell is not in this list: where main has it, the keyed child source
+	// hands the skin and its name arrives through the extras below.
 	for (const make of [
 		createReadToolDefinition,
 		createBashToolDefinition,

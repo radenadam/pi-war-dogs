@@ -54,10 +54,10 @@ import type { SchemaEnums } from "./tools/agent.ts";
 import { loadAgents, reportAgentDiagnostics } from "./agents/config.ts";
 import {
 	childToolNames,
-	isPowershellAvailable,
+	mainShells,
 	setChildExtraTools,
 	setChildExtraToolsSource,
-	setPowershellAvailable,
+	setMainShells,
 } from "./agents/childtools.ts";
 import { runningJobs } from "./tools/bash-background.ts";
 import { noticeForMain, noticeForRun } from "./tools/interrupted.ts";
@@ -183,19 +183,22 @@ export default async function (pi: ExtensionAPI) {
 					powershellTool.register(pi, cwd),
 				];
 				for (const d of skins) registerToolDef(d);
-				// Children get ALL FOUR skins (2026-08-22; read since 2026-08-21),
+				// Children get the skins (2026-08-22; read since 2026-08-21),
 				// built for the CHILD's cwd at build time and stamped: one
-				// contract for parent and child — numbered reads, bash with a
-				// `description`, edit's atomic-batch wording, every result
-				// carrying the clock. bash in its CHILD form: no `background`
+				// contract for parent and child — numbered reads, the shell with
+				// a `description`, edit's atomic-batch wording, every result
+				// carrying the clock. The shell in its CHILD form: no `background`
 				// (a job's result delivers through the parent's ExtensionAPI,
 				// which a child session does not have). A custom tool under a
 				// built-in's name replaces the stock one in the child's
-				// registry, exactly as it does here.
+				// registry, exactly as it does here. The bash skin only where
+				// main HAS bash (one shell per platform, activateCustomTools):
+				// excludeTools already drops the name from a child, and not
+				// handing the skin keeps its registry honest too.
 				setChildExtraToolsSource("skins", (childCwd) =>
 					[
 						readTool.build(childCwd),
-						bashTool.build(childCwd, { child: true }),
+						...(mainShells().bash ? [bashTool.build(childCwd, { child: true })] : []),
 						writeTool.build(childCwd),
 						editTool.build(childCwd),
 					].map((d) => withStamp(d) as never),
@@ -285,32 +288,46 @@ export default async function (pi: ExtensionAPI) {
 			// bash with rg/fd covers grep/find/ls, and four overlapping schemas
 			// are a per-request tax plus noise in the agent tool's grantable
 			// enum. `war-dogs.stockTools: true` restores them everywhere.
-			// THE SHELL FOLLOWS THE PLATFORM (the maintainer's rule; the first
-			// Windows run, 2026-08-30): pi registers `powershell` on every
-			// platform but activates it nowhere by default (sdk.js: read, bash,
-			// edit, write), and its own getPowerShellConfig refuses to run it off
-			// Windows. So on Windows powershell STAYS in the active set beside
-			// bash (pi finds Git Bash there): pi activates every tool an
-			// extension registers, our skin included (probed: `cur` carries it),
-			// and the splice below only covers a pi that stops doing so — unless
-			// the user set pi's `defaultTools`, which is pi's documented knob and
-			// wins as written; elsewhere it is trimmed as the dead tool it is.
-			// The earlier guard trimmed it beside bash everywhere, which on
-			// Windows removed the platform's shell (the maintainer's first
-			// Windows session never saw it). Off stays stock: a boot-off never
-			// runs this.
+			// ONE SHELL PER PLATFORM (the maintainer's rule; the first Windows
+			// run, 2026-08-30): powershell on Windows, bash elsewhere, both only
+			// when the user chose so with pi's own knobs (`--tools`/`-t` on the
+			// command line, `defaultTools` in a settings file) — then pi's set
+			// stands as written. The mechanism: pi registers `powershell` on
+			// every platform but activates only read, bash, edit, write by
+			// default (sdk.js), activates every tool an extension registers (our
+			// powershell skin included; probed), and refuses to RUN powershell
+			// off Windows. So on Windows bash is REPLACED by powershell at its
+			// seat (the splice covers a pi that stops auto-activating the skin);
+			// elsewhere powershell is trimmed as the dead tool it is. Two earlier
+			// cuts were wrong on a real Windows pi: the first trimmed powershell
+			// beside a present bash (Git Bash is always present there, so the
+			// platform's shell vanished), the second kept both (redundant).
+			// Off stays stock: a boot-off never runs this.
 			const keepStock = warDogsBlock().stockTools === true;
 			const onWindows = process.platform === "win32";
-			const userChoseTools = findSettings((cfg) => (Array.isArray(cfg?.defaultTools) ? true : undefined)) === true;
-			if (onWindows && !userChoseTools && !active.includes("powershell")) {
-				const at = active.indexOf("bash");
-				active.splice(at >= 0 ? at + 1 : active.length, 0, "powershell");
+			const userChoseTools =
+				process.argv.includes("--tools") ||
+				process.argv.includes("-t") ||
+				findSettings((cfg) => (Array.isArray(cfg?.defaultTools) ? true : undefined)) === true;
+			const shellTrim: string[] = [];
+			if (!userChoseTools) {
+				if (onWindows) {
+					// powershell takes bash's seat, so the order mirrors pi's own
+					// (read, <shell>, edit, write) instead of the skin's late
+					// registration; bash goes.
+					const at = active.indexOf("bash");
+					if (at >= 0) {
+						const rest = active.filter((n) => n !== "powershell");
+						rest.splice(rest.indexOf("bash"), 1, "powershell");
+						active.splice(0, active.length, ...rest);
+					}
+				} else shellTrim.push("powershell");
 			}
-			const trim = new Set(["grep", "find", "ls", ...(onWindows ? [] : ["powershell"])]);
-			const final = keepStock ? active : active.filter((n) => !trim.has(n));
-			// Children follow (agents/childtools.ts): the powershell skin is
-			// handed over, and offered in the agent tool's enum, where main has it.
-			setPowershellAvailable(final.includes("powershell"));
+			const trim = new Set([...(keepStock ? [] : ["grep", "find", "ls"]), ...shellTrim]);
+			const final = active.filter((n) => !trim.has(n));
+			// Children follow (agents/childtools.ts): the shell main has is the
+			// shell a child is handed and the agent tool's enum offers.
+			setMainShells({ bash: final.includes("bash"), powershell: final.includes("powershell") });
 			pi.setActiveTools(final);
 		} catch {}
 	};
@@ -723,10 +740,10 @@ function registerTools(pi: ExtensionAPI) {
 	// customTools or their names resolve to nothing. See agents/childtools.ts.
 	setChildExtraTools(defs);
 	// The powershell skin for a child, where main has powershell (Windows;
-	// agents/childtools.ts isPowershellAvailable); keyed, since the factory
-	// re-runs per session and the answer is known only after the active set.
+	// agents/childtools.ts mainShells); keyed, since the factory re-runs per
+	// session and the answer is known only after the active set.
 	setChildExtraToolsSource("powershell", (cwd) =>
-		isPowershellAvailable() ? [withStamp(powershellTool.build(cwd, { child: true })) as never] : [],
+		mainShells().powershell ? [withStamp(powershellTool.build(cwd, { child: true })) as never] : [],
 	);
 }
 
