@@ -1,0 +1,10 @@
+# One line ending on every checkout. Git for Windows ships core.autocrlf=true
+# in its system config, which checked the tree out as CRLF: prettier (endOfLine
+# lf) flagged all 103 files, and any .md the extension reads at runtime
+# (scout-system-prompt.md) would have carried CR into what a model is told.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.ans -text
