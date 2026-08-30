@@ -26,12 +26,12 @@ One command, into pi's extensions directory (`git` and `npm` on `PATH`):
 
 ```sh
 # bash / zsh
-git clone https://github.com/radenadam/pi-war-dogs ~/.pi/agent/extensions/war-dogs && npm install --prefix ~/.pi/agent/extensions/war-dogs
+git clone https://github.com/radenadam/pi-war-dogs ~/.pi/agent/extensions/war-dogs && cd ~/.pi/agent/extensions/war-dogs && npm install
 ```
 
 ```powershell
 # PowerShell
-git clone https://github.com/radenadam/pi-war-dogs "$HOME\.pi\agent\extensions\war-dogs"; npm install --prefix "$HOME\.pi\agent\extensions\war-dogs"
+git clone https://github.com/radenadam/pi-war-dogs "$HOME\.pi\agent\extensions\war-dogs"; Set-Location "$HOME\.pi\agent\extensions\war-dogs"; npm install
 ```
 
 Or copy a folder you already have (`node_modules/` included) into `~/.pi/agent/extensions/`. If pi's agent directory is elsewhere (`PI_CODING_AGENT_DIR`), use that path.
