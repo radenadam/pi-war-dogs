@@ -124,6 +124,92 @@ const ok = (c, msg) => {
 };
 
 export const scenarios = {
+	async agent_rechat() {
+		const pi = launch();
+		await pi.waitFor(/main view/, 40000);
+		const id = sessionId(pi);
+		const before = new Set(allJsonl(SESS(AGENT)));
+		pi.send(
+			"Start one agent with the task: run Get-Location through your shell tool and reply with the path. Wait for it and tell me what it said.\r",
+		);
+		const file = await sessionFileFor(AGENT, id);
+		await waitToolCall(file, "agent");
+		await idle(pi, 240000);
+		const child = newestJsonl(SESS(AGENT), new Set([file, ...before]));
+		ok(!!child, "child transcript: " + path.basename(child));
+		const turn1 = toolCalls(child).filter((c) => c.name === "powershell").length;
+		ok(turn1 >= 1, "turn 1: the child used powershell (" + turn1 + " calls)");
+		// chat with the idle run from its own view: alt+s, select, enter, type
+		pi.key("alt-s");
+		await sleep(800);
+		pi.key("down");
+		await sleep(400);
+		pi.key("enter");
+		await sleep(1500);
+		ok(/subagent view/.test(pi.text()), "the run view is open (" + pi.screen()[0].trim().slice(0, 60) + ")");
+		pi.send("Now run Get-Date through your shell tool and reply with the exact output.\r");
+		const t0 = Date.now();
+		while (Date.now() - t0 < 180000) {
+			if (toolCalls(child).filter((c) => c.name === "powershell").length > turn1) break;
+			await sleep(500);
+		}
+		const turn2 = toolCalls(child).filter((c) => c.name === "powershell").length;
+		ok(
+			turn2 > turn1,
+			"turn 2 (rehydrated run): the child used powershell again (" +
+				turn2 +
+				" calls total), never bash: " +
+				!toolCalls(child).some((c) => c.name === "bash"),
+		);
+		await pi.waitFor(/Generated in \d+|idle/, 180000, "the child's second turn to settle");
+		await sleep(1500);
+		show(pi, "the run view after the chat");
+		// transcript facts: user-role messages, model/provider on every assistant message, same as main's
+		const es = entries(child);
+		const users = es.filter((e) => e.type === "message" && e.message?.role === "user").length;
+		const assistants = es.filter((e) => e.type === "message" && e.message?.role === "assistant");
+		const models = new Set(assistants.map((m) => (m.message.provider ?? "") + "/" + (m.message.model ?? "")));
+		const mainModels = new Set(
+			entries(file)
+				.filter((e) => e.type === "message" && e.message?.role === "assistant")
+				.map((m) => (m.message.provider ?? "") + "/" + (m.message.model ?? "")),
+		);
+		console.log(
+			"  child: " +
+				users +
+				" user messages, " +
+				assistants.length +
+				" assistant messages, models " +
+				JSON.stringify([...models]) +
+				"; main models " +
+				JSON.stringify([...mainModels]),
+		);
+		ok(users >= 2 && assistants.length >= 2, "the transcript holds both turns");
+		ok(models.size === 1 && [...mainModels].every((m) => models.has(m)), "the child ran on main's model on both turns");
+		const thinking = es
+			.filter((e) => e.type === "thinking_level_change" || e.thinkingLevel)
+			.map((e) => e.thinkingLevel ?? e.level);
+		const manifest = fs.readdirSync(path.dirname(child)).find((f) => f.endsWith(".json"));
+		const man = manifest ? JSON.parse(fs.readFileSync(path.join(path.dirname(child), manifest), "utf8")) : null;
+		console.log(
+			"  manifest: " +
+				JSON.stringify(
+					man
+						? {
+								status: man.status,
+								model: man.model ?? man.config?.model,
+								thinking: man.thinkingLevel ?? man.config?.thinkingLevel ?? man.config?.effort,
+								tools: man.config?.tools,
+							}
+						: null,
+				) +
+				"; transcript thinking entries: " +
+				JSON.stringify(thinking),
+		);
+		pi.key("ctrl-r");
+		await sleep(600);
+		await quit(pi);
+	},
 	async agent_enum() {
 		const out = SCRATCH + "\\enum.json";
 		try {
