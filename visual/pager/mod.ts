@@ -314,7 +314,22 @@ async function openPager(ctx: ExtensionContext) {
 							// Arguments forwarded whole: pi-tui's stop takes options.
 							t.stop = function (this: unknown, ...a: unknown[]) {
 								origStop.apply(this, a);
-								if (!tornDown) restoreModes();
+								if (!tornDown) {
+									restoreModes();
+									// Park the cursor below pi's stale primary frame, as the
+									// SIGTSTP hook does: pi prints "Launching external editor…"
+									// right after this, at the cursor `?1049l` restored — the
+									// editor line of that frame — so with a GUI editor (notepad,
+									// pi's Windows default) the lines overwrote the footer and
+									// scrolled the frame up two rows per press (the maintainer's
+									// screenshot, 2026-08-30). Under pi's own alt screen the
+									// primary is pi's to manage.
+									if (!piOwnsAlt(tui)) {
+										try {
+											fs.writeSync(1, parkBelowStaleFrame());
+										} catch {}
+									}
+								}
 							};
 							t.start = function (this: unknown, ...a: unknown[]) {
 								origStart.apply(this, a);
