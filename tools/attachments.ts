@@ -44,18 +44,25 @@ import { Text } from "@earendil-works/pi-tui";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { detectImageMimeType, pastedImagePaths } from "./library/image.ts";
+import {
+	defLinePattern,
+	detectImageMimeType,
+	expandHomePath,
+	imagePathPattern,
+	pastedImagePaths,
+} from "./library/image.ts";
 import type { ImageMime } from "./library/image.ts";
 
 /**
- * Absolute or ~/ image path in typed text; boundary-checked so prose survives.
- * The LEFT boundary matters as much as the right: without it the match could
- * start at any `/`, so `docs/diagram.png` yielded the fragment `/diagram.png`
- * and would have rewritten the text if a file happened to exist at that
- * absolute path. The lookbehind allows start-of-line, whitespace and opening
- * quote/paren/bracket, and nothing else.
+ * Absolute or ~/ image path in typed text — on Windows also `C:\`, `C:/` and
+ * UNC; the dialect is decided once in tools/library/image.ts. There is no
+ * left boundary (an earlier note described a lookbehind the code does not
+ * carry): pi's paste-image key inserts the clipboard file wherever the caret
+ * is, so a path glued to a word still converts, and the guard against prose
+ * like `docs/diagram.png` is the on-disk check — a span attaches only if the
+ * absolute path it names exists and sniffs as an image.
  */
-const IMAGE_PATH_RE = /(?:~\/|\/)[^\s"()\[\]]*\.(?:png|jpe?g|gif|webp)/gi;
+const IMAGE_PATH_RE = imagePathPattern();
 /** A footnote definition line the pipeline itself wrote. */
 const FOOTER_DEF_RE = /^\[\^image \d+\]: /;
 /**
@@ -188,7 +195,7 @@ export function attachmentsReady(): boolean {
 
 function expandHome(p: string): string {
 	// os.homedir(), not $HOME: Windows sets USERPROFILE and no HOME (2026-08-30).
-	return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
+	return expandHomePath(p, os.homedir());
 }
 
 interface ImageBytes {
@@ -491,7 +498,7 @@ function notify(message: string, level: "info" | "warning" | "error" = "warning"
 function adoptFooterDefs(text: string, renumber = true): { text: string; preserved: string[] } {
 	const block = FOOTER_BLOCK_RE.exec(text);
 	if (!block) return { text, preserved: [] };
-	const DEF_LINE_RE = /^\[\^image (\d+)\]: ((?:~\/|\/).*)$/;
+	const DEF_LINE_RE = defLinePattern();
 	const preserved: string[] = [];
 	const renames = new Map<number, number>();
 	let fresh = freshId();
@@ -985,7 +992,7 @@ function rebuildFromHistory(ctx: ExtensionContext) {
 	const carried = live ? store.matching(live) : [];
 	store.clear();
 	submittedMaxId = 0;
-	const DEF_RE = /^\[\^image (\d+)\]: ((?:~\/|\/).+)$/gm;
+	const DEF_RE = defLinePattern("gm");
 	const defs = new Map<number, string>();
 	let entries: any[] = [];
 	try {

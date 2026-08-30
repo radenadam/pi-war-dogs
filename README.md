@@ -197,7 +197,7 @@ war-dogs ships [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter) (M
 
 # Image attachments
 
-Drag-and-drop, `ctrl+V` (pi inserts a clipboard-file path), and typed paths all become `[^image N]` references in the editor, mid-sentence, caret intact. At submit, each referenced image is re-read, resized through pi's own pipeline, and attached; a `[^image N]: /path` footer is appended behind a divider (wire-only on screen). The same engine routes images to an agent when you type at its view. An image pi's pipeline cannot decode is never sent, and the reference says so in one line.
+Drag-and-drop, pi's paste-image key (`ctrl+v`; `alt+v` on Windows, where the terminal itself takes `ctrl+v` — pi inserts a clipboard-file path), and typed paths all become `[^image N]` references in the editor, mid-sentence, caret intact. Windows paths (`C:\…`, `C:/…`, UNC) are recognised beside POSIX ones. At submit, each referenced image is re-read, resized through pi's own pipeline, and attached; a `[^image N]: /path` footer is appended behind a divider (wire-only on screen). The same engine routes images to an agent when you type at its view. An image pi's pipeline cannot decode is never sent, and the reference says so in one line.
 
 ---
 
