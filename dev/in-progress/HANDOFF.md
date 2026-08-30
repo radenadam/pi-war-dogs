@@ -25,8 +25,9 @@ The jiti probe recipe works with `file:///C:/…` URLs and forward-slash paths.
 
 Instruments that run here: `npm run typecheck`, `npm run format:check`, the headless boot
 (PowerShell's pipe adds a BOM — for the reply go through `cmd /c 'echo {…} | pi.cmd …'`, the
-book's Debugging section), `npm run fetch`, and jiti probes. `ci.sh`, the acceptance harness,
-inject/undo and the mock rig are bash+tmux and do not.
+book's Debugging section), `npm run fetch`, jiti probes, and the Windows acceptance rig
+(`dev/instruments/win/`, see below). `ci.sh`, the Linux acceptance harness, inject/undo and
+the mock rig are bash+tmux and do not.
 
 ## Done on Windows this session (2026-08-30)
 
@@ -85,19 +86,29 @@ inject/undo and the mock rig are bash+tmux and do not.
   URL for the jiti import) — but `definitions.md` is MACHINE-DEPENDENT (path separators in the
   agent description, the rg/fd line, the named-agent list), so regenerate it on Linux, not here.
 
+## The Windows acceptance rig, and the verdict (later still, 2026-08-30)
+
+`dev/instruments/win/` (node-pty ConPTY + headless xterm; the book's Debugging section) runs
+14 scenarios, ALL GREEN from the repo: agent_enum, exit_quit, exit_ctrl_d, exit_ctrl_c2,
+off_is_stock (text + SGR set vs `--no-extensions`), powershell_main (+ fold click + trace),
+bg_powershell, agent_child (+ station + run view), browser_mcp, webfetch_search, peers (two
+sessions, a message delivered), drop_space (a pasted `"…\my shot.png"` → `[^image 1]` → the
+model saw magenta), ctrl_g, switch. Two more fixes fell out of it: the agent tool's `tools`
+enum was baked before the shell answer existed (now decided at load, `decideShells`), and the
+bash description's rg/fd line ignored pi's own `<agentDir>/bin` (pi downloads rg/fd there and
+puts it first on the shell's PATH). README says "Windows is supported on Windows Terminal".
+The glyphs stay as they are (the maintainer's call: `✳` renders as the green-square emoji on
+Windows Terminal; not worth the time).
+
 ## NEXT
 
-1. GLYPHS (the maintainer's decision pending): Windows Terminal renders emoji-capable
-   codepoints through Segoe UI Emoji and ignores VS15, so `✳` (working agent, U+2733) shows as
-   the green-square emoji; `✔ ⚠ ⚙ ▶` are the other emoji-capable glyphs in use. Proposed:
-   `✻` (U+273B) for working; replace whichever of the other four the maintainer sees as
-   pictures (`✓`, `△`, `⊛`/`⚒`, `▸`). All width-1 in pi-tui (probed).
-2. A model-driven browser call from main and from a child (`pi -p`), a peer conversation
-   between two Windows sessions, a background bash/powershell job, and conhost.
-3. Windows Terminal drop shape: the probe assumes a bracketed paste with `"…"` around paths
-   containing spaces (WT's documented behaviour); confirm with a real drop of such a file.
-4. On Linux: re-run `./dev/ci.sh` (the shell change touches the child enum and the brief — the
-   ON prompt and the brief text changed; off is untouched) and regenerate `definitions.md`.
+1. conhost: one screenshot from the maintainer of pi + war-dogs in a classic `cmd.exe`
+   window (ConPTY is the mechanism under both; conhost's renderer is the only untested part).
+2. On Linux: re-run `./dev/ci.sh` (the shell change touches the child enum and the brief —
+   the ON prompt and the brief text changed; off is untouched), the `--editor` harness leg
+   (the ctrl+g parking), and regenerate `definitions.md` (machine-dependent; not from Windows).
+3. Push: eleven-ish commits on the Windows clone's `main` (`git log origin/main..HEAD`).
+4. macOS pass and the agent review remain as PRs.
 
 ## Commits to push
 

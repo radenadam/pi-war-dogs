@@ -1,0 +1,10 @@
+{
+	"name": "war-dogs-win-rig",
+	"private": true,
+	"type": "module",
+	"description": "The Windows acceptance rig: drives pi + war-dogs inside a ConPTY (node-pty) and reads the screen back (xterm headless). Not part of war-dogs; install here with `npm install`.",
+	"dependencies": {
+		"@xterm/headless": "^5.5.0",
+		"node-pty": "^1.1.0"
+	}
+}

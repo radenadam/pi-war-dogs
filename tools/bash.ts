@@ -12,21 +12,31 @@
  * prompt metadata, so a plain spread covers snippet + guidelines.
  */
 
-import { abortedBy } from "../agents/run.ts";
+import { abortedBy, agentDir } from "../agents/run.ts";
 import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 /**
  * Capability-truth (the canDeliver-variant pattern, 2026-08-27): the
  * description names rg/fd only when they are actually installed — a
  * conditional "if available" makes the model spend a probe or risk a
  * failed command. Probed once per process; `where` on Windows, and a
- * missing prober degrades to silence, never to a guess.
+ * missing prober degrades to silence, never to a guess. Two places count
+ * (2026-08-30, the first Windows run): the process PATH, and pi's own
+ * `<agentDir>/bin`, where pi downloads rg and fd when they are not on PATH
+ * and which its shell tools put FIRST on the command's PATH (`getShellEnv`,
+ * dist/utils/shell.js). A PATH-only probe stayed silent on a machine where
+ * every command the model ran had both.
  */
 const MODERN_TOOLS: string = (() => {
 	const has = (bin: string): boolean => {
 		try {
 			execFileSync(process.platform === "win32" ? "where" : "which", [bin], { stdio: "ignore" });
 			return true;
+		} catch {}
+		try {
+			return fs.existsSync(path.join(agentDir(), "bin", bin + (process.platform === "win32" ? ".exe" : "")));
 		} catch {
 			return false;
 		}
