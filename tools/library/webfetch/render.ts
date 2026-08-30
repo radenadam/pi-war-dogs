@@ -20,10 +20,33 @@ import { extractPdf } from "./pdf.ts";
 import type { PageChrome, RawCapture } from "./types.ts";
 import { envInt, errLabel } from "./util.ts";
 
+/**
+ * Race `p` against a deadline and resolve `fallback` if the deadline wins —
+ * and CLEAR the timer when `p` wins. A bare `Promise.race([p, setTimeout])`
+ * leaves its timer armed after `p` settles, and a timer keeps node's event
+ * loop alive: two of these, both sized to the remaining render budget (the
+ * API-body wait and `page.content()`), held the CLI process open for the
+ * whole 45 s after its report was printed (demonstrated on Windows with
+ * `process.getActiveResourcesInfo()` → `{"Timeout":2}` from t+5 s to t+46 s;
+ * the same on every platform). Every deadline race in this file goes through
+ * here; do not reintroduce a bare `Promise.race` with a `setTimeout`.
+ */
+function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<T>((r) => {
+		timer = setTimeout(() => r(fallback), ms);
+	});
+	return Promise.race([p, deadline]).finally(() => clearTimeout(timer));
+}
+
 /** Resolve a string promise, or "" if it doesn't finish within `ms` — keeps a
  *  hung page.content()/text() from blowing past the render deadline. */
 const raceStr = (p: Promise<string>, ms: number): Promise<string> =>
-	Promise.race([p.catch(() => ""), new Promise<string>((r) => setTimeout(() => r(""), Math.max(500, ms)))]);
+	withDeadline(
+		p.catch(() => ""),
+		Math.max(500, ms),
+		"",
+	);
 
 const NAV_TIMEOUT = 30_000;
 const MAX_API_CAPTURE = 25;
@@ -294,7 +317,7 @@ export async function renderFetch(
 				if (/json/i.test(ct) && apiResponses.length < MAX_API_CAPTURE) {
 					// Race the body read against a timeout: a streaming/long-poll response
 					// (live quotes) never resolves .text() and would hang the fetch.
-					const body = Promise.race<string>([resp.text(), new Promise((res) => setTimeout(() => res(""), 3000))]);
+					const body = withDeadline(resp.text(), 3000, "");
 					pending.push(
 						body
 							.then((b) => {
@@ -336,10 +359,7 @@ export async function renderFetch(
 			log("scroll");
 			await settle(page, Math.min(settleMs, 3000, deadline - Date.now()));
 			// Never wait past the deadline for API bodies (each already races a 3s cap).
-			await Promise.race([
-				Promise.allSettled(pending),
-				new Promise((res) => setTimeout(res, Math.max(1000, deadline - Date.now()))),
-			]);
+			await withDeadline<unknown>(Promise.allSettled(pending), Math.max(1000, deadline - Date.now()), undefined);
 			log("settle2+api");
 			finalUrl = trueFinal(page.url());
 			// Affordances from the PRISTINE DOM first (so tab selected-state is true).
@@ -416,7 +436,7 @@ export async function renderFetch(
 	} finally {
 		// Race the teardown too — context.close() on a wedged page can also hang, and
 		// it holds the concurrency permit until it returns.
-		if (context) await Promise.race([context.close(), new Promise((r) => setTimeout(r, 3000))]).catch(() => {});
+		if (context) await withDeadline<unknown>(context.close(), 3000, undefined).catch(() => {});
 		release();
 		touchDaemonActivity(); // a long render must not read as daemon idle time
 	}
