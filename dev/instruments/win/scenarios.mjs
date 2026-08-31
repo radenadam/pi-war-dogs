@@ -124,6 +124,123 @@ const ok = (c, msg) => {
 };
 
 export const scenarios = {
+	async task_provenance() {
+		const pi = launch();
+		await pi.waitFor(/main view/, 40000);
+		const id = sessionId(pi);
+		const before = new Set(allJsonl(SESS(AGENT)));
+		pi.send(
+			"Start one agent with the task: reply with the single word ready. Wait for it, then tell me what it said.\r",
+		);
+		const file = await sessionFileFor(AGENT, id);
+		await waitToolCall(file, "agent");
+		await idle(pi, 240000);
+		const child = newestJsonl(SESS(AGENT), new Set([file, ...before]));
+		ok(!!child, "child transcript: " + path.basename(child));
+		const first = entries(child).find((e) => e.type === "message" && e.message?.role === "user");
+		const text = (first.message.content ?? [])
+			.filter((c) => c.type === "text")
+			.map((c) => c.text)
+			.join("");
+		const firstLine = text.split("\n")[0];
+		console.log("  task first line: " + firstLine.slice(0, 140));
+		ok(/^\[from [^\]\n]+\]$/.test(firstLine), "the TASK opens with a provenance line");
+		ok(/goes back/.test(firstLine), "and it states where the output goes");
+		const body = text.split("\n").slice(1).join("\n").trim();
+		ok(body.length > 20, "a task body follows the line (" + body.length + " chars)");
+		await quit(pi);
+	},
+	async wait_nodup() {
+		const pi = launch();
+		await pi.waitFor(/main view/, 40000);
+		const id = sessionId(pi);
+		pi.send(
+			"Stress drill, follow exactly: FIRST start three agents in one batch of tool calls, each with a task like: run Start-Sleep -Seconds N through your shell tool, then reply with the single word done-N. Use N = 3, 8 and 13. THEN, in your very next tool call, use the agent action wait with all three ids at once in to. When the wait returns, reply with one line: how many replies the wait carried in full versus pointed elsewhere. Do not use status.\r",
+		);
+		const file = await sessionFileFor(AGENT, id);
+		await waitToolCall(file, "agent");
+		await idle(pi, 300000);
+		const es = entries(file);
+		// every agent id the wait reported
+		const waitResults = es.filter(
+			(e) => e.type === "message" && e.message?.role === "toolResult" && JSON.stringify(e).includes('"wait"'),
+		);
+		const bodyText = (e) => {
+			const c = e.message?.content ?? e.content ?? [];
+			if (typeof c === "string") return c;
+			return c
+				.filter((x) => x.type === "text")
+				.map((x) => x.text)
+				.join("");
+		};
+		const waitText = waitResults.map(bodyText).join("\n");
+		const delivered = es.filter((e) => e.type === "custom_message" && e.customType === "agent-result");
+		const batches = es.filter((e) => e.type === "custom_message" && e.customType === "background-results");
+		console.log(
+			"  deliveries: " +
+				delivered.length +
+				" single + " +
+				batches.length +
+				" batched; wait sections: " +
+				(waitText.match(/Agent "/g) || []).length,
+		);
+		for (const d of [...delivered, ...batches]) {
+			const dt = bodyText(d);
+			const dids = [...dt.matchAll(/agent id: (agent_[A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+			for (const did of dids) {
+				const dupBody = waitText.includes("agent id: " + did) && !waitText.includes("not repeated here");
+				ok(!dupBody, "a delivered reply (" + did + ") is not ALSO carried in full by the wait");
+			}
+		}
+		// the strong assertion: no reply body appears twice anywhere
+		const doneWords = ["done-3", "done-8", "done-13"];
+		for (const w of doneWords) {
+			const n = es.filter(
+				(e) => (e.type === "custom_message" || e.message?.role === "toolResult") && bodyText(e).includes(w),
+			).length;
+			ok(n <= 1, w + " reaches the model at most once (saw " + n + ")");
+		}
+		await quit(pi);
+	},
+	async wait_after_delivery() {
+		const pi = launch();
+		await pi.waitFor(/main view/, 40000);
+		const id = sessionId(pi);
+		pi.send(
+			"Drill, follow exactly: FIRST start one agent with the task: reply with the single word banana-bread. SECOND run Start-Sleep -Seconds 12 through your shell tool (foreground, one call). THIRD use the agent action wait on that agent id. Then reply with one line describing what the wait said. Do not use status.\r",
+		);
+		const file = await sessionFileFor(AGENT, id);
+		await waitToolCall(file, "agent");
+		await idle(pi, 300000);
+		const es = entries(file);
+		const bodyText = (e) => {
+			const c = e.message?.content ?? e.content ?? [];
+			if (typeof c === "string") return c;
+			return c
+				.filter((x) => x.type === "text")
+				.map((x) => x.text)
+				.join("");
+		};
+		const delivered = es.filter(
+			(e) =>
+				e.type === "custom_message" &&
+				(e.customType === "agent-result" || e.customType === "background-results") &&
+				bodyText(e).includes("banana-bread"),
+		);
+		const waitResults = es.filter(
+			(e) => e.type === "message" && e.message?.role === "toolResult" && bodyText(e).includes("not repeated here"),
+		);
+		const n = es.filter(
+			(e) => (e.type === "custom_message" || e.message?.role === "toolResult") && bodyText(e).includes("banana-bread"),
+		).length;
+		console.log(
+			"  delivered=" + delivered.length + " pointer-waits=" + waitResults.length + " banana-bread occurrences=" + n,
+		);
+		ok(delivered.length === 1, "the reply arrived once as a delivery");
+		ok(waitResults.length >= 1, "the wait pointed at it instead of repeating");
+		ok(n === 1, "the reply body reaches the model exactly once");
+		await quit(pi);
+	},
 	async agent_rechat() {
 		const pi = launch();
 		await pi.waitFor(/main view/, 40000);

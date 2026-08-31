@@ -155,10 +155,35 @@ Both found by the maintainer using the thing, both in the webfetch family, one c
   The daemon is ONE node now (`--import` tsx's loader, file URL). Reproduced (2 new
   console-host processes per spawn) and re-measured after (zero; fetch OK). Ledger: the
   daemon sentence under "A lock nobody owns…". One node process fewer on every platform.
-## NEXT — the Linux session: reconcile, then re-verify
+## The maintainer's stress session: two agent-tool bugs, found by the model, fixed (2026-08-31)
 
-(Items 1 and 2 are the DONE section above.)
-3. macOS pass and the agent review remain as PRs.
+Session `01a05730-f8fe…`: 12 agents, 3 levels, a 22-file toolkit — the model's verdict "works
+well", plus two bugs, both confirmed and fixed:
+
+- **Duplicate replies with a multi-id `wait`** (four instances, timestamps in the ledger):
+  doWait claimed per id AT VISIT TIME in a sequential loop, so ids behind a slow hold sat
+  unclaimed and their settling runs were delivered AND reported by the wait; and a run that
+  delivered BETWEEN two waits had its body repeated by the later wait. Now: claims are placed
+  up front for every resolvable id, and `rec.deliveredTurn` makes every wait branch point at
+  an already-dispatched delivery ("…not repeated here") instead of repeating it. Ledger: the
+  claims entry under "A delivery needs a turn to ride".
+- **`[from orchestrator]` invented by children**: the exchange block teaches the [from …]
+  convention, but the TASK — the only message a fresh child had seen — carried no such line
+  (the maintainer's wire screenshots), so two children minted their own header. The task now
+  goes out through the same provenanceLine composer as every later message (maintainer's
+  ruling: fix the missing information, not the prompt). Ledger: the provenance entry.
+
+Both driven on Windows (rig scenarios `task_provenance`, `wait_nodup`, `wait_after_delivery`,
+all green, real model). FOR THE NEXT LINUX RUN: `./dev/ci.sh` again (claims changes touch
+`twowaits`/`claims3`/`usersteer`; the task's new first line meets the mock's keyword walk —
+substring matching should hold, verify), add a task-line assertion to the `provenance`
+scenario, and regenerate `dev/reference/agent-tool.html` (wait's texts gained the
+"not repeated here" sentence). `definitions.md` is unchanged (no schema or description edits).
+
+## NEXT
+
+1. On Linux: the re-verify list above (ci.sh, provenance assertion, agent-tool.html regen).
+2. macOS pass and the agent review remain as PRs.
 
 ## Open, small
 

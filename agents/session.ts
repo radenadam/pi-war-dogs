@@ -812,6 +812,9 @@ async function sendToRun(
 		// wait, then a message: the message's reply reached the model zero
 		// times).
 		rec.claims = 0;
+		// The delivered flag is the previous turn's too: left set, a wait on
+		// the NEXT turn would point at a delivery that never happened.
+		rec.deliveredTurn = false;
 		// This turn's completion signal, for a joiner with no owner delivery
 		// to ride on (agents/run.ts beginTurn; resolved by settle).
 		beginTurn(rec);

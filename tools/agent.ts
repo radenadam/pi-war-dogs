@@ -78,6 +78,7 @@ import {
 	resolveExtensionPaths,
 	resolveModel,
 	promptRun,
+	provenanceLine,
 	sharedModelRuntime,
 	ensureSession,
 	senderName,
@@ -1108,7 +1109,18 @@ async function doRun(env: ToolEnv, params: AgentInput, _signal: AbortSignal | un
 			if (controller.signal.aborted) onAbort();
 			else controller.signal.addEventListener("abort", onAbort, { once: true });
 
-			const turn = session.prompt(appendStamp(task), { source: "extension" } as never);
+			// The TASK carries the same provenance line every later message gets
+			// (2026-08-31, the maintainer's ruling on the stress session): the
+			// exchange block teaches "the first line of every message names who
+			// sent it", and the one message a fresh child had seen was the task,
+			// which carried only the stamp — so a child MINTED its own header
+			// ("[from orchestrator]", two children independently), and status
+			// honestly previewed it. Same composer, same grammar, from = to =
+			// the starter (the task's output goes back to whoever handed it).
+			const starter = senderOf(env);
+			const turn = session.prompt(appendStamp(`${provenanceLine(starter, starter, run)}\n\n${task}`), {
+				source: "extension",
+			} as never);
 			// Messages that arrived while the run was QUEUED (promptRun held
 			// them): steers into this turn, sent once it is under way —
 			// promptRun waits for streaming before it steers, so they land at
@@ -1253,6 +1265,9 @@ function deliverWhenDone(env: ToolEnv, run: SubagentRun, work: Promise<AgentRepl
 		const body = `Agent "${run.title}" (${run.agent}) ${state}:\n\n${r.body}`;
 		const details = { runId: run.id, agent: run.agent, seconds: r.seconds, isError: r.isError };
 		if (toMain) {
+			// A later wait on this turn points at this delivery instead of
+			// repeating it (rec.deliveredTurn; doWait).
+			if (cur) cur.deliveredTurn = true;
 			deliver(env.pi as ExtensionAPI, { customType: "agent-result", provenance: AGENT_DELIVERY, body, details });
 			return;
 		}
@@ -1261,6 +1276,7 @@ function deliverWhenDone(env: ToolEnv, run: SubagentRun, work: Promise<AgentRepl
 		// it, or it was never this process's) — the reply stays readable
 		// through wait and status.
 		if (!parent || parent.controller.signal.aborted) return;
+		if (cur) cur.deliveredTurn = true;
 		const p = deliverToRun(
 			env.parentId as string,
 			{
@@ -1461,6 +1477,26 @@ async function doAsk(env: ToolEnv, params: AgentInput, signal: AbortSignal | und
 async function doWait(env: ToolEnv, params: AgentInput, signal: AbortSignal | undefined, ctx?: unknown) {
 	const ids = toArray(params.to);
 	if (!ids.length) throw new Error(`wait needs one or more agent ids in "to".`);
+	// Claim EVERY resolvable target UP FRONT, before the first hold. The old
+	// per-id claim was placed only when the sequential loop REACHED an id, so
+	// every id behind a slow one sat unclaimed for the whole earlier hold, and
+	// a run settling in that window was delivered by deliverWhenDone AND then
+	// reported by this wait — the same reply twice (the maintainer's stress
+	// session, 2026-08-31: three replies composed mid-wait at 16:45:52–16:46:23
+	// against a wait whose result composed at 16:47:21). One claim per
+	// OCCURRENCE, matching the loop's one release per aborted occurrence; ids
+	// that do not resolve here (peers, unknown, reach-refused) claim nothing
+	// and the loop reports them exactly as before.
+	for (const id of ids) {
+		try {
+			const r = mustFind(env, id, "hold for");
+			gateReach(env, r, "wait");
+			const rc = registry.get(r.id);
+			if (rc) rc.claims = (rc.claims ?? 0) + 1;
+		} catch {
+			/* the loop below composes the refusal text */
+		}
+	}
 	const sections: string[] = [];
 	let anyError = false;
 	// An aborted wait is an ERROR result like bash's aborted command — red on
@@ -1518,12 +1554,11 @@ async function doWait(env: ToolEnv, params: AgentInput, signal: AbortSignal | un
 			// reported it "finished (earlier)" while it visibly worked).
 			// A tool-started turn has rec.work; any other turn is watched
 			// through its settle (the record's status flips there).
-			// Claim the reply BEFORE holding: this wait is its consumer, so
-			// the delivery must not repeat it — whoever owns the turn (a
-			// joiner may arm a delivery on a user's turn, 2026-08-25).
-			// Released on interruption. A COUNT: two waits, one interrupted,
-			// must not release what the other still holds.
-			if (rec) rec.claims = (rec.claims ?? 0) + 1;
+			// The claim was placed by the UP-FRONT pass above (one per
+			// occurrence, before any hold); this wait is the reply's consumer,
+			// so the delivery must not repeat it. Released on interruption.
+			// A COUNT: two waits, one interrupted, must not release what the
+			// other still holds.
 			const settled: Promise<boolean> = rec?.work
 				? rec.work.then(() => true)
 				: (async () => {
@@ -1571,7 +1606,23 @@ async function doWait(env: ToolEnv, params: AgentInput, signal: AbortSignal | un
 				const word = r.interrupted
 					? `was interrupted by the user after ${fmtSecs(r.seconds)}`
 					: stateWord(current, r.seconds);
-				sections.push(`Agent "${current.title}" (${current.agent}) ${word}:\n\n${r.body}`);
+				// A turn whose reply already went out as its own delivery is
+				// pointed at, never repeated (rec.deliveredTurn) — repeating it
+				// handed the model the same text twice.
+				if (rec.deliveredTurn) {
+					sections.push(
+						`Agent "${current.title}" (${current.agent}) ${word}; its reply was delivered as its own agent result and is not repeated here.`,
+					);
+				} else {
+					sections.push(`Agent "${current.title}" (${current.agent}) ${word}:\n\n${r.body}`);
+				}
+			} else if (rec?.deliveredTurn) {
+				const from = rec.turnStartedAt ?? current.startedAt;
+				const seconds = current.endedAt ? Math.max(0, Math.round((current.endedAt - from) / 1000)) : 0;
+				anyError = anyError || current.status === "error";
+				sections.push(
+					`Agent "${current.title}" (${current.agent}) ${stateWord(current, seconds, env.parentId)}; its reply was delivered as its own agent result and is not repeated here.`,
+				);
 			} else {
 				// The TURN's duration, not the run's lifetime: a run continued
 				// twice reports the turn just waited on.
@@ -1597,6 +1648,15 @@ async function doWait(env: ToolEnv, params: AgentInput, signal: AbortSignal | un
 		// lifetime is the only clock a manifest from an earlier process has.
 		const from = rec?.turnStartedAt ?? run.startedAt;
 		const seconds = run.endedAt ? Math.max(0, Math.round((run.endedAt - from) / 1000)) : 0;
+		// The fourth duplicate of the stress session lived HERE: the run
+		// finished and its reply was delivered between two waits, and the
+		// later wait repeated the whole body. Point at the delivery instead.
+		if (rec?.deliveredTurn) {
+			sections.push(
+				`Agent "${run.title}" (${run.agent}) ${stateWord(run, seconds, env.parentId)} (earlier); its reply was delivered as its own agent result and is not repeated here.`,
+			);
+			continue;
+		}
 		const enotes: string[] = [];
 		const reply = capReply(run, lastReplyFromTranscript(run), enotes) || "(no output)";
 		sections.push(

@@ -249,6 +249,15 @@ export interface RunRecord {
 	/** A delivery is armed for this turn by a joiner; one per turn. Cleared at owner-turn start. */
 	deliveryArmed?: boolean;
 	/**
+	 * THIS turn's reply was dispatched as its own delivery (deliverWhenDone:
+	 * an agent-result to main, or a wake to the parent). A wait that reads a
+	 * delivered turn points at the delivery instead of repeating the body —
+	 * the fourth duplicate of the 2026-08-31 stress session: a run finished
+	 * and delivered between two waits, and the later wait carried the same
+	 * reply again. Cleared at owner-turn start beside claims.
+	 */
+	deliveredTurn?: boolean;
+	/**
 	 * Who THIS turn's final output goes back to (2026-08-30, the exchange
 	 * block): the sender of the message that owns the turn; the user for a
 	 * turn typed in the run view; the interrupted turn's receiver for the
