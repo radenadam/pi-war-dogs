@@ -76,7 +76,10 @@ for (const t of ["read", "bash", "write", "edit"]) skins[t] = await jiti.import(
 C.setChildExtraToolsSource("skins", (childCwd) =>
 	[
 		skins.read.build(childCwd),
-		skins.bash.build(childCwd, { child: true }),
+		// The bash skin only where main HAS bash — index.ts's gate (one shell
+		// per platform); an unconditional hand here kept a child's bash alive
+		// after setMainShells flipped to powershell (the shellps scenario).
+		...(C.mainShells().bash ? [skins.bash.build(childCwd, { child: true })] : []),
 		skins.write.build(childCwd),
 		skins.edit.build(childCwd),
 	].map((d) => ST.withStamp(d)),
@@ -97,7 +100,7 @@ S.setContinueNotice((id) => I.noticeForRun(id));
 const PS = await jiti.import(`${WD}/tools/powershell.ts`);
 const VB = await jiti.import(`${WD}/visual/tools/bash.ts`);
 C.setChildExtraToolsSource("powershell", (cwd) =>
-	C.isShellPowershell() ? [ST.withStamp(PS.build(cwd, { child: true }))] : [],
+	C.mainShells().powershell ? [ST.withStamp(PS.build(cwd, { child: true }))] : [],
 );
 
 const sessionsDir = smMod.getDefaultSessionDir(CWD, AG);

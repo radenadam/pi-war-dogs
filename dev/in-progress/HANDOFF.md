@@ -1,4 +1,4 @@
-# HANDOFF — Windows done end to end (Windows Terminal + conhost); next: reconcile the Linux folder. pi 0.84.4, pi-mcp-adapter 2.29.0, @playwright/mcp 0.0.79.
+# HANDOFF — reconciled and re-verified on Linux; next: macOS and the agent review. pi 0.84.4, pi-mcp-adapter 2.29.0, @playwright/mcp 0.0.79.
 
 Read `dev/README.md` (the workshop map), then `dev/internals/README.md` (the engineering book —
 the only memory), then this. State is the code plus the book; history tells you how something
@@ -118,22 +118,29 @@ NEXT SESSION MUST KNOW:
 - conhost: the maintainer ran pi + war-dogs in a classic command-line window; looks fine.
   Windows is done end to end.
 
+## Reconciled and re-verified on Linux — DONE (2026-08-31)
+
+The Linux folder now tracks `origin/main`: identity set in `.git/config`, the pre-publish
+history closed with a final commit on `master` (`pre-publish history closes here…`), then
+`checkout -B main origin/main`; nothing uncommitted was lost (verified: no file newer than
+the publish evening), `node_modules/` survived (deps unchanged since publish). The stale
+publish-day export under `/tmp/wd-publish.*` predates the history rewrite — never push from
+it. Re-verify: `./dev/ci.sh` ALL GREEN (25 scenarios, inject, undo, acceptance incl. the
+editor leg); `definitions.md` regenerates on Linux byte-identical except the date stamp
+(discarded, not committed).
+
+**The one CI failure was the instruments, not the code — the `shellps` first run.** The
+shell rework's intermediate cuts left three stale names in the Linux-side instruments:
+`setShellIsPowershell` in the scenario, `isShellPowershell` and an ungated bash hand in the
+harness's "mirrored from index.ts" wiring. Invisible on Windows (the mock suite is
+bash+tmux) and silent at run time (`childExtraTools`'s `safeCall` swallows a throwing
+source into "no tools"). All three fixed against the real `setMainShells`/`mainShells`
+API; `shellps` green end to end; the mechanism is appended to the ONE SHELL PER PLATFORM
+ledger entry (instruments are readers of this API; keyed sources are last-write-wins).
+
 ## NEXT — the Linux session: reconcile, then re-verify
 
-1. **Reconcile the Linux folder** (`~/.pi/agent/extensions/war-dogs`). It has NO `origin` and
-   its own pre-publish history — its commits share NO root with GitHub, so never merge or
-   rebase the two. Recipe: `git status` there first and rescue anything uncommitted that
-   GitHub lacks (the publish-day changes themselves were exported and are on GitHub; check
-   before assuming more); then
-   `git remote add origin https://github.com/radenadam/pi-war-dogs && git fetch origin &&
-   git checkout -B main origin/main` — the old local history stays in the reflog/old branch,
-   the working tree becomes GitHub's, and `node_modules/` (gitignored, Linux-native, deps
-   unchanged since publish) survives so no `npm install` is needed. Set the git identity
-   (above) before the first commit.
-2. Re-verify on Linux: `./dev/ci.sh` (the shell change altered the ON prompt, the brief text
-   and the agent enum; off is untouched), the acceptance harness `--editor` leg (the ctrl+g
-   parking change), and regenerate `definitions.md` there (machine-dependent; never from
-   Windows). The win rig (`dev/instruments/win/`) is Windows-only; ignore it on Linux.
+(Items 1 and 2 are the DONE section above.)
 3. macOS pass and the agent review remain as PRs.
 
 ## Open, small

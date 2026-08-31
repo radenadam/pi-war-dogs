@@ -1056,11 +1056,11 @@ export async function bgprefix(h) {
 export async function shellps(h) {
 	const C = h.mods.C;
 	const cwd = process.env.WD_CWD ?? process.cwd();
-	C.setShellIsPowershell(false);
+	C.setMainShells({ bash: true, powershell: false });
 	const beside = C.childToolNames(cwd);
-	h.log(`beside bash, a child's tools: ${beside.join(", ")}`);
-	if (beside.includes("powershell")) throw new Error("beside bash a child must not be handed powershell");
-	C.setShellIsPowershell(true);
+	h.log(`with bash the shell, a child's tools: ${beside.join(", ")}`);
+	if (beside.includes("powershell")) throw new Error("with bash the shell a child must not be handed powershell");
+	C.setMainShells({ bash: false, powershell: true });
 	const asShell = C.childToolNames(cwd);
 	const def = C.childExtraTools(cwd).find((d) => d.name === "powershell");
 	h.log(`powershell as the shell, a child's tools: ${asShell.join(", ")}`);
@@ -1080,7 +1080,7 @@ export async function shellps(h) {
 		throw new Error("the description must be war-dogs' own");
 	if (!Array.isArray(def.promptGuidelines) || def.promptSnippet !== "Execute PowerShell commands")
 		throw new Error("snippet and guidelines must stay pi's verbatim");
-	C.setShellIsPowershell(false);
+	C.setMainShells(C.decideShells().shells);
 	// The main form, and pi's refusal off Windows through the skin.
 	const main = h.mods.PS.build(cwd);
 	const mprops = Object.keys(main.parameters?.properties ?? {});
