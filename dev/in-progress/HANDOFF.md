@@ -46,7 +46,7 @@ the mock rig are bash+tmux and do not.
 - **Default browser**: the `--browser chrome` fallback (Chrome off PATH) drives Chrome from
   Program Files — MCP initialize → navigate a `data:` URL → snapshot → close in ~3 s, headless
   (`%TEMP%\wd-probe\pw-handshake.mjs` style, no model). Not yet driven by a model.
-- **WebFetch**: static tier OK (2 s); render tier OK with the daemon (tsx cli → daemon → headless
+- **WebFetch**: static tier OK (2 s); render tier OK with the daemon (since 2026-08-31 ONE node via --import → headless
   Chrome from Program Files; state under `~/.cache/war-dogs`; `--daemon-status`/`--daemon-stop`
   work). The "47 s per render" seen first was NOT the network: two budget-length timers in
   `render.ts` stayed armed after the work won and held the CLI open until the 45 s budget
@@ -138,6 +138,23 @@ source into "no tools"). All three fixed against the real `setMainShells`/`mainS
 API; `shellps` green end to end; the mechanism is appended to the ONE SHELL PER PLATFORM
 ledger entry (instruments are readers of this API; keyed sources are last-write-wins).
 
+## Two more Windows spawn shapes (2026-08-31, after the reconcile)
+
+Both found by the maintainer using the thing, both in the webfetch family, one commit:
+
+- **The scout could not spawn pi** (`expect-error · failed to launch "pi": spawn pi ENOENT`,
+  the maintainer's screenshot): scout.ts's `PI_ENTRY` regex predated pi 0.84.3's bundle move
+  and missed `dist/bundle/cli.js` — the THIRD site bitten by that move (pidist.ts and the dev
+  instruments absorbed it earlier). The bare-name fallback hid it on Linux (ran whichever `pi`
+  was on PATH — precisely what the derivation forbids) and died on Windows (`pi` is a .ps1/.cmd
+  shim spawn() cannot exec). Fixed; proven end to end on Windows (runScout → ok:true against
+  python.org). Ledger: "Anything that recognises pi's entry script must know BOTH shapes".
+- **A terminal window popped whenever Chrome was needed** (render/scout): the daemon was
+  spawned through tsx's CLI, which starts a SECOND node; on Windows that grandchild's freshly
+  allocated console is hosted by a visible Windows Terminal window for the daemon's lifetime.
+  The daemon is ONE node now (`--import` tsx's loader, file URL). Reproduced (2 new
+  console-host processes per spawn) and re-measured after (zero; fetch OK). Ledger: the
+  daemon sentence under "A lock nobody owns…". One node process fewer on every platform.
 ## NEXT — the Linux session: reconcile, then re-verify
 
 (Items 1 and 2 are the DONE section above.)
