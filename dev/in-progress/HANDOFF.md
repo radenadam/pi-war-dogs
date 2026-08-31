@@ -1,4 +1,4 @@
-# HANDOFF — first Windows pass under way. pi 0.84.4, pi-mcp-adapter 2.29.0, @playwright/mcp 0.0.79.
+# HANDOFF — Windows done end to end (Windows Terminal + conhost); next: reconcile the Linux folder. pi 0.84.4, pi-mcp-adapter 2.29.0, @playwright/mcp 0.0.79.
 
 Read `dev/README.md` (the workshop map), then `dev/internals/README.md` (the engineering book —
 the only memory), then this. State is the code plus the book; history tells you how something
@@ -102,21 +102,39 @@ text-safe `✻ ✓` under Windows Terminal (win32 or WT_SESSION, so WSL too), an
 `war-dogs.glyphs` settings block for taste, width-1 enforced (the ledger entry beside the
 emoji-width one).
 
-## NEXT
+## Pushed, identity fixed, conhost seen (2026-08-31)
 
-1. conhost: one screenshot from the maintainer of pi + war-dogs in a classic `cmd.exe`
-   window (ConPTY is the mechanism under both; conhost's renderer is the only untested part).
-2. On Linux: re-run `./dev/ci.sh` (the shell change touches the child enum and the brief —
-   the ON prompt and the brief text changed; off is untouched), the `--editor` harness leg
-   (the ctrl+g parking), and regenerate `definitions.md` (machine-dependent; not from Windows).
-3. Push: eleven-ish commits on the Windows clone's `main` (`git log origin/main..HEAD`).
-4. macOS pass and the agent review remain as PRs.
+Everything above is on GitHub: `main` = `origin/main`, 14 commits, linear. TWO THINGS THE
+NEXT SESSION MUST KNOW:
 
-## Commits to push
+- **The history was REWRITTEN after the first push**: the Windows session committed as the
+  wrong email, so the 11 Windows-pass commits were filter-branched to
+  `Raden Muhammad Adam <radenadam39@gmail.com>` (the package.json author — the only identity
+  this repo uses) and force-pushed. Every hash after `b2d9320` changed. Any clone taken from
+  GitHub during 2026-08-31 before the rewrite is stale — re-clone or hard-reset it.
+  The Windows clone's `.git/config` now pins the identity; DO THE SAME on any other machine
+  before committing (`git config user.name "Raden Muhammad Adam"`,
+  `git config user.email "radenadam39@gmail.com"`).
+- conhost: the maintainer ran pi + war-dogs in a classic command-line window; looks fine.
+  Windows is done end to end.
 
-gitattributes, attachments path dialect, webfetch render timer, the ctrl+g parking, the shell
-rule, and this handoff — on the Windows clone's `main`, not yet pushed to origin (`git log
-origin/main..HEAD`). The maintainer has seen alt+v and the rest on screen; push when ready.
+## NEXT — the Linux session: reconcile, then re-verify
+
+1. **Reconcile the Linux folder** (`~/.pi/agent/extensions/war-dogs`). It has NO `origin` and
+   its own pre-publish history — its commits share NO root with GitHub, so never merge or
+   rebase the two. Recipe: `git status` there first and rescue anything uncommitted that
+   GitHub lacks (the publish-day changes themselves were exported and are on GitHub; check
+   before assuming more); then
+   `git remote add origin https://github.com/radenadam/pi-war-dogs && git fetch origin &&
+   git checkout -B main origin/main` — the old local history stays in the reflog/old branch,
+   the working tree becomes GitHub's, and `node_modules/` (gitignored, Linux-native, deps
+   unchanged since publish) survives so no `npm install` is needed. Set the git identity
+   (above) before the first commit.
+2. Re-verify on Linux: `./dev/ci.sh` (the shell change altered the ON prompt, the brief text
+   and the agent enum; off is untouched), the acceptance harness `--editor` leg (the ctrl+g
+   parking change), and regenerate `definitions.md` there (machine-dependent; never from
+   Windows). The win rig (`dev/instruments/win/`) is Windows-only; ignore it on Linux.
+3. macOS pass and the agent review remain as PRs.
 
 ## Open, small
 
