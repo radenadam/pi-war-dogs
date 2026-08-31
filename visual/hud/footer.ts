@@ -15,6 +15,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 // Runtime imports resolve via pi's extension alias map (same as pager.ts).
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
+import { RUN_GLYPHS } from "../glyphs.ts";
 import { activeElapsedOf, registry, runsForOwner } from "../../agents/run.ts";
 import { runningJobList, runningJobs } from "../../tools/bash-background.ts";
 import { fmtSecs } from "../../util/format.ts";
@@ -427,7 +428,12 @@ class StatusStrip {
 			.map((r) => t.fg("muted", `${r.agent} ${activeElapsedOf(r)}`))
 			.join(t.fg("dim", " · "));
 		const more = live.length > 3 ? t.fg("dim", ` +${live.length - 3}`) : "";
-		const tally = [done ? SUB_OK(`✔${done}`) : "", failed ? SUB_FAILED(`✘${failed}`) : ""].filter(Boolean).join(" ");
+		const tally = [
+			done ? SUB_OK(`${RUN_GLYPHS.idle}${done}`) : "",
+			failed ? SUB_FAILED(`${RUN_GLYPHS.error}${failed}`) : "",
+		]
+			.filter(Boolean)
+			.join(" ");
 		let left = [head, names + more, tally].filter(Boolean).join(t.fg("dim", " · "));
 		const hint = t.fg("dim", "alt+s");
 		const ellipsis = t.fg("dim", "…");

@@ -19,6 +19,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { openExternal } from "../../util/opener.ts";
+import { runGlyph } from "../glyphs.ts";
 import * as path from "node:path";
 import {
 	BashExecutionComponent,
@@ -5871,7 +5872,7 @@ export class PagerComponent {
 				});
 			const glyph = r.hasKids ? (r.collapsed ? "▸" : "▾") : "·";
 			const st = r.run.status;
-			const mark = st === "working" ? "✳" : st === "queued" ? "◌" : st === "idle" ? "✔" : st === "stopped" ? "⊘" : "✘";
+			const mark = runGlyph(st);
 			// Failed stays red — that is a real signal, not chrome. Running and
 			// done both take the view colour so the station reads as one surface.
 			const col = st === "error" || st === "stopped" ? "error" : this.viewAccent();

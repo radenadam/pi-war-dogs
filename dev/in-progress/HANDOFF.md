@@ -97,8 +97,10 @@ model saw magenta), ctrl_g, switch. Two more fixes fell out of it: the agent too
 enum was baked before the shell answer existed (now decided at load, `decideShells`), and the
 bash description's rg/fd line ignored pi's own `<agentDir>/bin` (pi downloads rg/fd there and
 puts it first on the shell's PATH). README says "Windows is supported on Windows Terminal".
-The glyphs stay as they are (the maintainer's call: `✳` renders as the green-square emoji on
-Windows Terminal; not worth the time).
+The run-status glyphs are one decision now (visual/glyphs.ts): classic `✳ ✔` everywhere,
+text-safe `✻ ✓` under Windows Terminal (win32 or WT_SESSION, so WSL too), and a
+`war-dogs.glyphs` settings block for taste, width-1 enforced (the ledger entry beside the
+emoji-width one).
 
 ## NEXT
 

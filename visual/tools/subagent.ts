@@ -15,6 +15,7 @@
  */
 
 import { Container, Text } from "@earendil-works/pi-tui";
+import { RUN_GLYPHS } from "../glyphs.ts";
 import { srcLines } from "../../util/format.ts";
 import { childrenOf, descendantCount, elapsedOf, knownRuns, registry } from "../../agents/run.ts";
 import { BLUE, SUB_FAILED, SUB_OK } from "../../util/paint.ts";
@@ -27,13 +28,9 @@ const SPIN = ["|", "/", "-", "\\"];
 export const SPIN_MS = 250;
 export const spinFrame = () => SPIN[Math.floor(Date.now() / SPIN_MS) % SPIN.length];
 
-const GLYPH: Record<SubagentRun["status"], string> = {
-	working: "✳",
-	queued: "◌",
-	idle: "✔",
-	stopped: "⊘",
-	error: "✘",
-};
+// One decision point for the status glyphs (visual/glyphs.ts): defaults per
+// terminal, `war-dogs.glyphs` overrides, width-1 enforced.
+const GLYPH: Record<SubagentRun["status"], string> = RUN_GLYPHS;
 // Identity painters, constant across themes: blue = working/identity,
 // settled-ok green; stopped and error read red (util/paint.ts).
 const STATUS_PAINT: Record<SubagentRun["status"], (t: string) => string> = {
@@ -219,7 +216,7 @@ export function renderResult(result: any, options: any, theme: any, context: any
 			rows.push(
 				MARK(rootId) +
 					theme.fg("muted", "└─ ") +
-					(failedRun ? SUB_FAILED("✘ ") : SUB_OK("✔ ")) +
+					(failedRun ? SUB_FAILED(`${RUN_GLYPHS.error} `) : SUB_OK(`${RUN_GLYPHS.idle} `)) +
 					BLUE(agent) +
 					theme.fg("muted", " • ") +
 					theme.fg("text", title) +

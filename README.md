@@ -242,6 +242,7 @@ Everything war-dogs reads. All of it is optional; with only `war-dogs.enabled: t
 | `enabled` | `false` | The master switch. war-dogs does nothing until this is `true`. |
 | `theme` | `"canopy"` | The palette: `canopy`, `canopy-cobalt`, `dune`, `oxide`. A string names it and keeps the theme feature on; `false` turns the feature off (stock theme). `/war-dogs on` writes this into pi's `settings.theme` for you. |
 | `stockTools` | `false` | Restore pi's stock `grep`/`find`/`ls` for your session and for agents. By default they are trimmed — the shell with `rg`/`fd` covers them. The shell itself is not governed here: one per platform, or pi's `--tools`/`defaultTools` (The shell skins). |
+| `glyphs` | per terminal | The run-status glyphs (`working`, `queued`, `idle`, `stopped`, `error`), e.g. `{"working": "✽", "idle": "✓"}`. Defaults: `✳ ◌ ✔ ⊘ ✘`; under Windows Terminal `✳`→`✻` and `✔`→`✓`, because its font fallback renders emoji-capable codepoints as colour emoji. An override must be one column wide or it is ignored. Applies on `/reload`. |
 | `canvas.port` | derived | Pin the `/canvas` HTTP port. By default it is derived from the canvas path so bookmarks survive restarts. |
 | `expect` | — | The WebFetch scout: `profiles`, `maxUrls`, `timeoutMs`, and `profile` (a pinned profile name). See the header of `tools/library/webfetch/scout.ts`. |
 | `_prevTheme` | — | Written by `/war-dogs on` to remember your theme, restored on off. Not something you set. |
