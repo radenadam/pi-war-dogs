@@ -94,7 +94,15 @@ function defaultFetchCommand(): string {
  */
 const PI_ENTRY = (() => {
 	const a1 = process.argv[1] ?? "";
-	return /pi-coding-agent[\\/]dist[\\/]cli\.js$|[\\/]bin[\\/]pi$|[\\/]pi$/.test(a1) ? a1 : "";
+	// Both entry shapes: 0.83 runs <pi>/dist/cli.js, 0.84.3+ runs the bundle,
+	// <pi>/dist/bundle/cli.js (the same move pidist.ts and the dev instruments
+	// already absorbed). Missing the bundle shape made this silently take the
+	// bare-name fallback everywhere: on Linux the scout ran whichever pi was
+	// first on PATH — exactly what this derivation exists to prevent — and on
+	// Windows, where `pi` is a .ps1/.cmd shim spawn() cannot exec, every
+	// expect evaluation died with `spawn pi ENOENT` (the maintainer's
+	// screenshot, 2026-08-31).
+	return /pi-coding-agent[\\/]dist[\\/](?:bundle[\\/])?cli\.js$|[\\/]bin[\\/]pi$|[\\/]pi$/.test(a1) ? a1 : "";
 })();
 const PI_CMD = PI_ENTRY ? process.execPath : "pi";
 const PI_PRE = PI_ENTRY ? [PI_ENTRY] : [];

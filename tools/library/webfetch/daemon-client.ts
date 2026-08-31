@@ -14,7 +14,7 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium, type Browser } from "playwright-core";
 import { errLabel, stateDir } from "./util.ts";
 
@@ -198,14 +198,24 @@ function releaseLock(): void {
 /**
  * Start the daemon.
  *
- * Two things this must never do again. It must not spawn a SHIM: the old code
- * ran `node_modules/.bin/tsx`, a symlink whose exec bit does not survive a zip
- * or a FAT copy — and the README's install instruction is literally "copy this
- * folder". It runs tsx's own entry with THIS node instead, so file modes are
- * irrelevant. And it must not spawn without an `error` listener: node emits
- * 'error' for ENOENT/EACCES, an unhandled 'error' event is an uncaughtException,
- * and pi's handler prints "pi exiting due to uncaughtException" and exits — a
- * missing tsx killed the whole session (demonstrated on a copy of the tree).
+ * Three things this must never do again. It must not spawn a SHIM: the old
+ * code ran `node_modules/.bin/tsx`, a symlink whose exec bit does not survive
+ * a zip or a FAT copy — and the README's install instruction is literally
+ * "copy this folder". It must not spawn without an `error` listener: node
+ * emits 'error' for ENOENT/EACCES, an unhandled 'error' event is an
+ * uncaughtException, and pi's handler prints "pi exiting due to
+ * uncaughtException" and exits — a missing tsx killed the whole session
+ * (demonstrated on a copy of the tree). And it must be ONE process, not
+ * tsx's CLI: `tsx/dist/cli.mjs` spawns a SECOND node for the script, and on
+ * Windows that grandchild — a console app whose parent our `detached: true`
+ * left without a console, spawned by tsx with no windowsHide — got a fresh
+ * console allocated by the OS, which Windows 11 hosts in a VISIBLE Windows
+ * Terminal window for the daemon's whole lifetime (the maintainer's
+ * screenshot, 2026-08-31; reproduced: two new console-host processes per
+ * daemon spawn). So THIS node runs the daemon directly with tsx registered
+ * through `--import` (tsx's package export `.` is its loader), as a file URL
+ * because `--import C:\…` is ERR_UNSUPPORTED_ESM_URL_SCHEME on Windows: one
+ * process, and our own spawn options govern the only console candidate.
  *
  * stdio goes to a log file rather than /dev/null so the reason a daemon died
  * (no Chrome on this machine, most often) can be reported instead of a bare
@@ -214,13 +224,13 @@ function releaseLock(): void {
 function spawnDaemon(): void {
 	const root = extensionRoot();
 	const daemon = path.join(thisDir(), "daemon.ts");
-	const tsxEntry = path.join(root, "node_modules", "tsx", "dist", "cli.mjs");
+	const tsxLoader = path.join(root, "node_modules", "tsx", "dist", "loader.mjs");
 	const tsxShim = path.join(root, "node_modules", ".bin", "tsx");
 	let cmd: string;
 	let args: string[];
-	if (fs.existsSync(tsxEntry)) {
-		cmd = process.execPath; // this node — no shim, no exec bit needed
-		args = [tsxEntry, daemon];
+	if (fs.existsSync(tsxLoader)) {
+		cmd = process.execPath; // this node — no shim, no exec bit, no second process
+		args = ["--import", pathToFileURL(tsxLoader).href, daemon];
 	} else if (fs.existsSync(tsxShim)) {
 		cmd = tsxShim;
 		args = [daemon];
@@ -236,6 +246,7 @@ function spawnDaemon(): void {
 	}
 	const child = spawn(cmd, args, {
 		detached: true,
+		windowsHide: true,
 		stdio: log === undefined ? "ignore" : ["ignore", log, log],
 	});
 	// A spawn failure arrives as an EVENT, not a throw. Unhandled, it is an
