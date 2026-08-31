@@ -6,12 +6,12 @@ changed, not what it is.
 
 ## Where war-dogs stands
 
-Published: https://github.com/radenadam/pi-war-dogs (public, `main`, MIT). `./dev/ci.sh` was ALL
-GREEN on Linux before publish (25 agent scenarios, inject, undo, off=stock acceptance; typecheck
-and format clean). The Windows clone at `$HOME\.pi\agent\extensions\war-dogs` now carries two
-commits past the publish (both pushed? — NO: see "Commits to push"). The Linux folder has no
-`origin` and its own uncommitted copies of the publish-day changes; reconcile once
-(`git remote add origin …` there, then fetch and rebase or re-clone).
+Published: https://github.com/radenadam/pi-war-dogs (public, `main`, MIT; linear history, every
+commit `Raden Muhammad Adam <radenadam39@gmail.com>`). `./dev/ci.sh` was ALL GREEN on Linux
+before publish (25 agent scenarios, inject, undo, off=stock acceptance); the whole Windows pass
+since is pushed (`main` = `origin/main`). The Linux folder has no `origin` and its own
+pre-publish history; reconciling it is the next session's first job — the exact recipe is in
+NEXT at the bottom (never merge or rebase the two histories).
 
 ## The Windows machine (the maintainer's)
 
